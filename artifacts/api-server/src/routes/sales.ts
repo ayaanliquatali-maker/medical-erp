@@ -139,7 +139,8 @@ router.post("/sales", async (req, res): Promise<void> => {
   const totalDiscount = data.discount ?? 0;
   const total = subtotal - totalDiscount;
 
-  // Deduct from inventory (FIFO by expiry date)
+  // Deduct from inventory (FIFO by expiry date) and track COGS
+  let totalCogs = 0;
   for (const line of lineValues) {
     let tabletsToDeduct = line.tabletsNeeded;
     const batches = await db
@@ -151,6 +152,8 @@ router.post("/sales", async (req, res): Promise<void> => {
     for (const batch of batches) {
       if (tabletsToDeduct <= 0) break;
       const deduct = Math.min(batch.remainingTablets, tabletsToDeduct);
+      const batchCostPerUnit = parseFloat(batch.costPerUnit as string) || 0;
+      totalCogs += deduct * batchCostPerUnit;
       await db.update(inventoryBatchesTable)
         .set({ remainingTablets: batch.remainingTablets - deduct })
         .where(eq(inventoryBatchesTable.id, batch.id));
@@ -158,8 +161,10 @@ router.post("/sales", async (req, res): Promise<void> => {
     }
   }
 
-  // Create journal entry: DR Cash/Payment, CR Revenue
+  // Create journal entry: DR Cash/Payment CR Revenue + DR COGS CR Inventory
   const revenueAccount = await db.query.accountsTable.findFirst({ where: eq(accountsTable.code, "4000") });
+  const cogsAccount = await db.query.accountsTable.findFirst({ where: eq(accountsTable.code, "5000") });
+  const inventoryAccount = await db.query.accountsTable.findFirst({ where: eq(accountsTable.code, "1300") });
   let journalEntryId: number | null = null;
 
   if (revenueAccount) {
@@ -169,10 +174,20 @@ router.post("/sales", async (req, res): Promise<void> => {
       type: "sale",
     }).returning();
 
-    await db.insert(journalLinesTable).values([
+    const journalLines: Array<{ journalEntryId: number; accountId: number; debit: string; credit: string; description: string }> = [
       { journalEntryId: entry.id, accountId: data.paymentAccountId, debit: total.toString(), credit: "0", description: "Sale payment received" },
       { journalEntryId: entry.id, accountId: revenueAccount.id, debit: "0", credit: total.toString(), description: "Sales revenue" },
-    ]);
+    ];
+
+    // Double-entry COGS: DR Cost of Goods Sold, CR Inventory
+    if (cogsAccount && inventoryAccount && totalCogs > 0) {
+      journalLines.push(
+        { journalEntryId: entry.id, accountId: cogsAccount.id, debit: totalCogs.toFixed(2), credit: "0", description: "Cost of goods sold" },
+        { journalEntryId: entry.id, accountId: inventoryAccount.id, debit: "0", credit: totalCogs.toFixed(2), description: "Inventory consumed" },
+      );
+    }
+
+    await db.insert(journalLinesTable).values(journalLines);
     journalEntryId = entry.id;
   }
 

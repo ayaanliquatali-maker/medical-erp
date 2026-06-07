@@ -16,6 +16,7 @@ import Vendors from "@/pages/Vendors";
 import Expenses from "@/pages/Expenses";
 import Analytics from "@/pages/Analytics";
 import Settings from "@/pages/Settings";
+import GeneralLedger from "@/pages/GeneralLedger";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,6 +37,7 @@ function Router() {
         <Route path="/sales" component={Sales} />
         <Route path="/accounts" component={Accounts} />
         <Route path="/journals" component={Journals} />
+        <Route path="/ledger" component={GeneralLedger} />
         <Route path="/vendors" component={Vendors} />
         <Route path="/expenses" component={Expenses} />
         <Route path="/analytics" component={Analytics} />

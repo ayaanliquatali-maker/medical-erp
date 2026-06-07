@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 
-type CartItem = { productId: number; productName: string; unitType: "tablet" | "pack" | "box"; quantity: number; unitPrice: number; discount: number };
+type CartItem = { productId: number; productName: string; unitType: "tablet" | "pack" | "box"; quantity: number; qtyInput: string; unitPrice: number; discount: number };
 
 export default function POS() {
   const [search, setSearch] = useState("");
@@ -36,15 +36,34 @@ export default function POS() {
   const addToCart = (product: any) => {
     setCart(prev => {
       const existing = prev.find(item => item.productId === product.id && item.unitType === "tablet");
-      if (existing) return prev.map(item => item.productId === product.id && item.unitType === "tablet" ? { ...item, quantity: item.quantity + 1 } : item);
-      return [...prev, { productId: product.id, productName: product.name, unitType: "tablet", quantity: 1, unitPrice: product.sellingPricePerUnit, discount: 0 }];
+      if (existing) {
+        const newQty = existing.quantity + 1;
+        return prev.map(item => item.productId === product.id && item.unitType === "tablet"
+          ? { ...item, quantity: newQty, qtyInput: String(newQty) }
+          : item);
+      }
+      return [...prev, { productId: product.id, productName: product.name, unitType: "tablet", quantity: 1, qtyInput: "1", unitPrice: product.sellingPricePerUnit, discount: 0 }];
     });
   };
 
   const removeFromCart = (index: number) => setCart(prev => prev.filter((_, i) => i !== index));
 
-  const updateQty = (index: number, qty: number) =>
-    setCart(prev => prev.map((c, i) => i === index ? { ...c, quantity: Math.max(1, qty) } : c));
+  const updateQtyInput = (index: number, raw: string) => {
+    setCart(prev => prev.map((c, i) => {
+      if (i !== index) return c;
+      const parsed = parseInt(raw);
+      const quantity = isNaN(parsed) || parsed < 1 ? c.quantity : parsed;
+      return { ...c, qtyInput: raw, quantity };
+    }));
+  };
+
+  const commitQty = (index: number) => {
+    setCart(prev => prev.map((c, i) => {
+      if (i !== index) return c;
+      const qty = Math.max(1, parseInt(c.qtyInput) || 1);
+      return { ...c, quantity: qty, qtyInput: String(qty) };
+    }));
+  };
 
   const updateUnitType = (index: number, unitType: "tablet" | "pack" | "box") => {
     const product = products?.find(p => p.id === cart[index].productId);
@@ -153,8 +172,14 @@ export default function POS() {
                             <SelectItem value="box">Box</SelectItem>
                           </SelectContent>
                         </Select>
-                        <Input type="number" className="h-7 w-16 px-2 text-sm" value={item.quantity} min={1}
-                          onChange={e => updateQty(index, parseInt(e.target.value) || 1)} />
+                        <Input
+                          type="number"
+                          className="h-7 w-16 px-2 text-sm"
+                          value={item.qtyInput}
+                          min={1}
+                          onChange={e => updateQtyInput(index, e.target.value)}
+                          onBlur={() => commitQty(index)}
+                        />
                         <span className="text-xs text-muted-foreground">× ₨{item.unitPrice.toFixed(2)}</span>
                       </div>
                     </div>

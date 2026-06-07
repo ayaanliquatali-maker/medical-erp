@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, BookOpen, Trash2, PlusCircle } from "lucide-react";
+import { Plus, BookOpen, Trash2, PlusCircle, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -33,6 +33,7 @@ const getTypeColor = (type: string) => {
 export default function Journals() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [form, setForm] = useState({ date: today(), description: "", reference: "" });
   const [lines, setLines] = useState<JournalLine[]>([emptyLine(), emptyLine()]);
 
@@ -51,6 +52,15 @@ export default function Journals() {
     setLines(ls => ls.map((l, j) => j === i ? { ...l, [k]: e.target.value } : l));
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListJournalsQueryKey({}) });
+
+  const toggleExpand = (id: number) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleSave = () => {
     if (!form.description) { toast({ title: "Description is required", variant: "destructive" }); return; }
@@ -95,7 +105,7 @@ export default function Journals() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Journal Entries</h1>
-          <p className="text-muted-foreground mt-1">General ledger transactions.</p>
+          <p className="text-muted-foreground mt-1">Click any entry to expand and see debit/credit accounts.</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />Manual Entry</Button>
       </div>
@@ -104,44 +114,95 @@ export default function Journals() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-6"></TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Reference</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead className="text-right">Debit</TableHead>
-              <TableHead className="text-right">Credit</TableHead>
+              <TableHead className="text-right">Total Debit</TableHead>
+              <TableHead className="text-right">Total Credit</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? [...Array(6)].map((_, i) => (
-              <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+              <TableRow key={i}>{[...Array(8)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
             )) : journals?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No journal entries yet. Entries are auto-created with sales and expenses.</TableCell>
+                <TableCell colSpan={8} className="text-center h-32 text-muted-foreground">No journal entries yet. Entries are auto-created with sales, purchases, and expenses.</TableCell>
               </TableRow>
-            ) : journals?.map(journal => (
-              <TableRow key={journal.id} className="hover:bg-muted/50">
-                <TableCell className="whitespace-nowrap">{format(new Date(journal.date), "MMM d, yyyy")}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={`capitalize ${getTypeColor(journal.type)}`}>{journal.type}</Badge>
-                </TableCell>
-                <TableCell className="font-mono text-muted-foreground text-sm">{journal.reference || "-"}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <span className="truncate max-w-48">{journal.description}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right font-medium">₨{(journal.totalDebit || 0).toFixed(2)}</TableCell>
-                <TableCell className="text-right font-medium">₨{(journal.totalCredit || 0).toFixed(2)}</TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setDeleteId(journal.id)}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+            ) : journals?.map(journal => {
+              const expanded = expandedIds.has(journal.id);
+              const debitLines = (journal as any).lines?.filter((l: any) => l.debit > 0) ?? [];
+              const creditLines = (journal as any).lines?.filter((l: any) => l.credit > 0) ?? [];
+              return (
+                <> <TableRow
+                    key={journal.id}
+                    className="hover:bg-muted/50 cursor-pointer"
+                    onClick={() => toggleExpand(journal.id)}
+                  >
+                    <TableCell className="p-2">
+                      {expanded
+                        ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{format(new Date(journal.date), "MMM d, yyyy")}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={`capitalize ${getTypeColor(journal.type)}`}>{journal.type}</Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-muted-foreground text-sm">{journal.reference || "-"}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span className="truncate max-w-48">{journal.description}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-blue-600">₨{(journal.totalDebit || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium text-green-600">₨{(journal.totalCredit || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-right" onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setDeleteId(journal.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  {expanded && (
+                    <TableRow key={`${journal.id}-lines`} className="bg-muted/20">
+                      <TableCell colSpan={8} className="px-8 py-3">
+                        <div className="flex flex-wrap gap-6 text-sm">
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-2">Debited Accounts</p>
+                            {debitLines.length === 0
+                              ? <p className="text-muted-foreground text-xs">None</p>
+                              : debitLines.map((l: any) => (
+                                <div key={l.id} className="flex items-center gap-2">
+                                  <span className="font-medium">{l.accountName}</span>
+                                  <span className="text-muted-foreground">DR</span>
+                                  <span className="font-bold text-blue-700">₨{l.debit.toFixed(2)}</span>
+                                </div>
+                              ))}
+                          </div>
+                          <div className="flex items-center self-center">
+                            <ArrowRight className="w-5 h-5 text-muted-foreground" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-2">Credited Accounts</p>
+                            {creditLines.length === 0
+                              ? <p className="text-muted-foreground text-xs">None</p>
+                              : creditLines.map((l: any) => (
+                                <div key={l.id} className="flex items-center gap-2">
+                                  <span className="font-medium">{l.accountName}</span>
+                                  <span className="text-muted-foreground">CR</span>
+                                  <span className="font-bold text-green-700">₨{l.credit.toFixed(2)}</span>
+                                </div>
+                              ))}
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
@@ -211,8 +272,8 @@ export default function Journals() {
                     ))}
                     <TableRow className="bg-muted/30 font-medium">
                       <TableCell className="p-2 text-sm">Totals</TableCell>
-                      <TableCell className="p-2 text-sm">₨{totalDebit.toFixed(2)}</TableCell>
-                      <TableCell className="p-2 text-sm">₨{totalCredit.toFixed(2)}</TableCell>
+                      <TableCell className="p-2 text-sm text-blue-600">₨{totalDebit.toFixed(2)}</TableCell>
+                      <TableCell className="p-2 text-sm text-green-600">₨{totalCredit.toFixed(2)}</TableCell>
                       <TableCell className="p-2">
                         {totalDebit > 0 && (
                           <span className={`text-xs font-medium ${balanced ? "text-green-600" : "text-destructive"}`}>
