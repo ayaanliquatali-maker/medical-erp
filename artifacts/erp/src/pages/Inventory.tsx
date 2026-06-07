@@ -64,7 +64,10 @@ export default function Inventory() {
         setForm({ productId: "", unitType: "tablet", batchNumber: "", boxesPurchased: "", packsPerBox: "10", tabsPerPack: "10", costPerUnit: "", sellingPricePerUnit: "", sellingPricePerPack: "", sellingPricePerBox: "", expiryDate: "", vendorId: "", paymentAccountId: "", notes: "" });
         toast({ title: "Inventory received successfully" });
       },
-      onError: () => toast({ title: "Failed to receive inventory", variant: "destructive" }),
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Failed to receive inventory";
+        toast({ title: msg, variant: "destructive" });
+      },
     });
   };
 

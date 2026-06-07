@@ -34,6 +34,9 @@ async function enrichBatch(batch: typeof inventoryBatchesTable.$inferSelect) {
   return {
     ...batch,
     costPerUnit: parseFloat(batch.costPerUnit as string),
+    sellingPricePerUnit: parseFloat(batch.sellingPricePerUnit as string),
+    sellingPricePerPack: parseFloat(batch.sellingPricePerPack as string),
+    sellingPricePerBox: parseFloat(batch.sellingPricePerBox as string),
     productName: product?.name ?? "",
     vendorName: vendor?.name ?? null,
     remainingPacks: batch.remainingTablets / batch.tabsPerPack,
@@ -121,6 +124,17 @@ router.post("/inventory", async (req, res): Promise<void> => {
   const data = parsed.data;
   const totalTablets = data.boxesPurchased * data.packsPerBox * data.tabsPerPack;
   const totalCost = totalTablets * data.costPerUnit;
+
+  // Validate vendor exists if provided
+  if (data.vendorId !== undefined) {
+    const vendor = await db.query.vendorsTable.findFirst({
+      where: eq(vendorsTable.id, data.vendorId),
+    });
+    if (!vendor) {
+      res.status(400).json({ error: `Vendor #${data.vendorId} not found. Please select a valid vendor or choose "None".` });
+      return;
+    }
+  }
 
   let journalEntryId: number | null = null;
 
