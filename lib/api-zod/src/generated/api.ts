@@ -310,6 +310,38 @@ export const UpdateInventoryBatchResponse = zod.object({
 
 
 /**
+ * @summary Delete an inventory batch
+ */
+export const DeleteInventoryBatchParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteInventoryBatchResponse = zod.object({
+  "id": zod.number(),
+  "productId": zod.number(),
+  "productName": zod.string(),
+  "batchNumber": zod.string().nullish(),
+  "unitType": zod.enum(['tablet', 'syrup']),
+  "boxesPurchased": zod.number(),
+  "packsPerBox": zod.number(),
+  "tabsPerPack": zod.number(),
+  "totalTablets": zod.number(),
+  "remainingTablets": zod.number(),
+  "remainingPacks": zod.number().optional(),
+  "remainingBoxes": zod.number().optional(),
+  "costPerUnit": zod.number(),
+  "sellingPricePerUnit": zod.number(),
+  "sellingPricePerPack": zod.number().optional(),
+  "sellingPricePerBox": zod.number().optional(),
+  "expiryDate": zod.coerce.date(),
+  "receivedAt": zod.string(),
+  "vendorId": zod.number().nullish(),
+  "vendorName": zod.string().nullish(),
+  "journalEntryId": zod.number().nullish()
+})
+
+
+/**
  * @summary Get stock alerts (low stock, expiry, out of stock)
  */
 export const GetInventoryAlertsResponse = zod.object({

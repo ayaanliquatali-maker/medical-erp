@@ -907,6 +907,76 @@ export const useUpdateInventoryBatch = <TError = ErrorType<unknown>,
       return useMutation(getUpdateInventoryBatchMutationOptions(options));
     }
 
+export const getDeleteInventoryBatchUrl = (id: number,) => {
+
+
+
+
+  return `/api/inventory/${id}`
+}
+
+/**
+ * @summary Delete an inventory batch
+ */
+export const deleteInventoryBatch = async (id: number, options?: RequestInit): Promise<InventoryBatch> => {
+
+  return customFetch<InventoryBatch>(getDeleteInventoryBatchUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getDeleteInventoryBatchMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryBatch>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryBatch>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteInventoryBatch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteInventoryBatch>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteInventoryBatch(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteInventoryBatchMutationResult = NonNullable<Awaited<ReturnType<typeof deleteInventoryBatch>>>
+
+    export type DeleteInventoryBatchMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an inventory batch
+ */
+export const useDeleteInventoryBatch = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteInventoryBatch>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteInventoryBatch>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteInventoryBatchMutationOptions(options));
+    }
+
 export const getGetInventoryAlertsUrl = () => {
 
 

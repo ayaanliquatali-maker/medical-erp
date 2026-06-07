@@ -18,6 +18,8 @@ import {
   UpdateInventoryBatchParams,
   UpdateInventoryBatchBody,
   UpdateInventoryBatchResponse,
+  DeleteInventoryBatchParams,
+  DeleteInventoryBatchResponse,
   GetInventoryAlertsResponse,
 } from "@workspace/api-zod";
 
@@ -225,6 +227,29 @@ router.patch("/inventory/:id", async (req, res): Promise<void> => {
   if (!updated) { res.status(404).json({ error: "Batch not found" }); return; }
   const enriched = await enrichBatch(updated);
   res.json(UpdateInventoryBatchResponse.parse(serializeForZod(enriched)));
+});
+
+router.delete("/inventory/:id", async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const batch = await db.query.inventoryBatchesTable.findFirst({ where: eq(inventoryBatchesTable.id, id) });
+  if (!batch) { res.status(404).json({ error: "Batch not found" }); return; }
+
+  // Delete associated journal entry if present (clear FK first, then delete JE)
+  if (batch.journalEntryId) {
+    await db.update(inventoryBatchesTable).set({ journalEntryId: null }).where(eq(inventoryBatchesTable.id, id));
+    await db.delete(journalLinesTable).where(eq(journalLinesTable.journalEntryId, batch.journalEntryId));
+    await db.delete(journalEntriesTable).where(eq(journalEntriesTable.id, batch.journalEntryId));
+  }
+
+  const [deleted] = await db.delete(inventoryBatchesTable)
+    .where(eq(inventoryBatchesTable.id, id))
+    .returning();
+
+  const enriched = await enrichBatch(deleted);
+  res.json(DeleteInventoryBatchResponse.parse(serializeForZod(enriched)));
 });
 
 export default router;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  useListInventory, useReceiveInventory, useListProducts, useListVendors, useListAccounts,
+  useListInventory, useReceiveInventory, useListProducts, useListVendors, useListAccounts, useDeleteInventoryBatch,
   getListInventoryQueryKey, getListProductsQueryKey, getListVendorsQueryKey, getListAccountsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Boxes, Layers, Pill } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Plus, Boxes, Layers, Pill, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format, isBefore, addDays } from "date-fns";
@@ -19,6 +19,8 @@ import { format, isBefore, addDays } from "date-fns";
 export default function Inventory() {
   const [view, setView] = useState<"tablets" | "packs" | "boxes">("tablets");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [batchToDelete, setBatchToDelete] = useState<number | null>(null);
   const [form, setForm] = useState({
     productId: "", unitType: "tablet" as "tablet" | "syrup", batchNumber: "", boxesPurchased: "", packsPerBox: "10",
     tabsPerPack: "10", costPerUnit: "", sellingPricePerUnit: "", sellingPricePerPack: "", sellingPricePerBox: "", expiryDate: "", vendorId: "", paymentAccountId: "", notes: "",
@@ -29,6 +31,7 @@ export default function Inventory() {
   const { data: vendors } = useListVendors({}, { query: { queryKey: getListVendorsQueryKey({}) } });
   const { data: accounts } = useListAccounts({}, { query: { queryKey: getListAccountsQueryKey({}) } });
   const receiveInventory = useReceiveInventory();
+  const deleteBatch = useDeleteInventoryBatch();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -112,6 +115,7 @@ export default function Inventory() {
               <TableHead className="text-right">Cost / Unit</TableHead>
               <TableHead>Expiry</TableHead>
               <TableHead>Vendor</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -121,7 +125,7 @@ export default function Inventory() {
               </TableRow>
             )) : inventory?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center h-32 text-muted-foreground">No inventory batches. Click "Receive Inventory" to add stock.</TableCell>
+                <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No inventory batches. Click "Receive Inventory" to add stock.</TableCell>
               </TableRow>
             ) : inventory?.map(batch => {
               const status = getExpiryStatus(batch.expiryDate);
@@ -140,6 +144,11 @@ export default function Inventory() {
                     </div>
                   </TableCell>
                   <TableCell>{batch.vendorName || "-"}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700" onClick={() => { setBatchToDelete(batch.id); setDeleteDialogOpen(true); }}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               );
             })}
@@ -239,6 +248,36 @@ export default function Inventory() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleReceive} disabled={receiveInventory.isPending}>
               {receiveInventory.isPending ? "Saving…" : "Receive Inventory"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Delete Inventory Batch</DialogTitle>
+            <DialogDescription>Are you sure you want to delete this batch? This will also remove the associated journal entry. This action cannot be undone.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={() => {
+              if (batchToDelete !== null) {
+                deleteBatch.mutate({ id: batchToDelete }, {
+                  onSuccess: () => {
+                    queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey({}) });
+                    setDeleteDialogOpen(false);
+                    setBatchToDelete(null);
+                    toast({ title: "Inventory batch deleted" });
+                  },
+                  onError: (err: any) => {
+                    const msg = err?.response?.data?.error ?? "Failed to delete batch";
+                    toast({ title: msg, variant: "destructive" });
+                  },
+                });
+              }
+            }} disabled={deleteBatch.isPending}>
+              {deleteBatch.isPending ? "Deleting…" : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
