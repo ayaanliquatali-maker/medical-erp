@@ -24,9 +24,9 @@ export interface Product {
   genericName?: string | null;
   /** @nullable */
   category?: string | null;
-  unitType: ProductUnitType;
-  tabsPerPack: number;
-  packsPerBox: number;
+  unitType?: ProductUnitType;
+  tabsPerPack?: number;
+  packsPerBox?: number;
   sellingPricePerUnit: number;
   sellingPricePerPack?: number;
   sellingPricePerBox?: number;
@@ -40,21 +40,10 @@ export interface Product {
   createdAt: string;
 }
 
-export type ProductInputUnitType = typeof ProductInputUnitType[keyof typeof ProductInputUnitType];
-
-
-export const ProductInputUnitType = {
-  tablet: 'tablet',
-  syrup: 'syrup',
-} as const;
-
 export interface ProductInput {
   name: string;
   genericName?: string;
   category?: string;
-  unitType: ProductInputUnitType;
-  tabsPerPack: number;
-  packsPerBox: number;
   reorderLevel?: number;
 }
 
@@ -62,11 +51,17 @@ export interface ProductUpdate {
   name?: string;
   genericName?: string;
   category?: string;
-  tabsPerPack?: number;
-  packsPerBox?: number;
   reorderLevel?: number;
   isActive?: boolean;
 }
+
+export type InventoryBatchUnitType = typeof InventoryBatchUnitType[keyof typeof InventoryBatchUnitType];
+
+
+export const InventoryBatchUnitType = {
+  tablet: 'tablet',
+  syrup: 'syrup',
+} as const;
 
 export interface InventoryBatch {
   id: number;
@@ -74,6 +69,7 @@ export interface InventoryBatch {
   productName: string;
   /** @nullable */
   batchNumber?: string | null;
+  unitType: InventoryBatchUnitType;
   boxesPurchased: number;
   packsPerBox: number;
   tabsPerPack: number;
@@ -95,9 +91,18 @@ export interface InventoryBatch {
   journalEntryId?: number | null;
 }
 
+export type InventoryReceiptInputUnitType = typeof InventoryReceiptInputUnitType[keyof typeof InventoryReceiptInputUnitType];
+
+
+export const InventoryReceiptInputUnitType = {
+  tablet: 'tablet',
+  syrup: 'syrup',
+} as const;
+
 export interface InventoryReceiptInput {
   productId: number;
   batchNumber?: string;
+  unitType: InventoryReceiptInputUnitType;
   boxesPurchased: number;
   packsPerBox: number;
   tabsPerPack: number;

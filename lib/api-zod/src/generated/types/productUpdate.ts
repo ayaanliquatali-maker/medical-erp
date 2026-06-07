@@ -10,8 +10,6 @@ export interface ProductUpdate {
   name?: string;
   genericName?: string;
   category?: string;
-  tabsPerPack?: number;
-  packsPerBox?: number;
   reorderLevel?: number;
   isActive?: boolean;
 }

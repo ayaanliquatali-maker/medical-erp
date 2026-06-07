@@ -9,6 +9,7 @@ export const inventoryBatchesTable = pgTable("inventory_batches", {
   id: serial("id").primaryKey(),
   productId: integer("product_id").notNull().references(() => productsTable.id),
   batchNumber: text("batch_number"),
+  unitType: text("unit_type").notNull().default("tablet"), // 'tablet' | 'syrup'
   boxesPurchased: integer("boxes_purchased").notNull(),
   packsPerBox: integer("packs_per_box").notNull(),
   tabsPerPack: integer("tabs_per_pack").notNull(),

@@ -34,12 +34,18 @@ export default function Analytics() {
   const { data: products } = useListProducts({}, { query: { queryKey: getListProductsQueryKey({}) } });
   const { data: inventory } = useListInventory({ view: "tablets" }, { query: { queryKey: getListInventoryQueryKey({ view: "tablets" }) } });
 
-  // Compute inventory valuation per product
+  // Compute inventory valuation per product from batch data
   const inventoryValuation = (products ?? []).map(p => {
     const batches = (inventory ?? []).filter(b => b.productName === p.name);
     const remainingTablets = batches.reduce((s, b) => s + b.remainingTablets, 0);
-    const costValue = remainingTablets * p.costPerUnit;
-    const sellingValue = remainingTablets * p.sellingPricePerUnit;
+    const avgCost = batches.length > 0
+      ? batches.reduce((s, b) => s + b.remainingTablets * b.costPerUnit, 0) / batches.reduce((s, b) => s + b.remainingTablets, 0)
+      : 0;
+    const avgSell = batches.length > 0
+      ? batches.reduce((s, b) => s + b.remainingTablets * b.sellingPricePerUnit, 0) / batches.reduce((s, b) => s + b.remainingTablets, 0)
+      : 0;
+    const costValue = remainingTablets * avgCost;
+    const sellingValue = remainingTablets * avgSell;
     const margin = costValue > 0 ? ((sellingValue - costValue) / costValue * 100) : 0;
     return { name: p.name, remainingTablets, costValue, sellingValue, margin };
   }).filter(p => p.remainingTablets > 0).sort((a, b) => b.costValue - a.costValue);

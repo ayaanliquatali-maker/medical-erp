@@ -20,8 +20,8 @@ export default function Inventory() {
   const [view, setView] = useState<"tablets" | "packs" | "boxes">("tablets");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({
-    productId: "", batchNumber: "", boxesPurchased: "", packsPerBox: "10",
-    tabsPerPack: "10", costPerUnit: "", expiryDate: "", vendorId: "", paymentAccountId: "", notes: "",
+    productId: "", unitType: "tablet" as "tablet" | "syrup", batchNumber: "", boxesPurchased: "", packsPerBox: "10",
+    tabsPerPack: "10", costPerUnit: "", sellingPricePerUnit: "", sellingPricePerPack: "", sellingPricePerBox: "", expiryDate: "", vendorId: "", paymentAccountId: "", notes: "",
   });
 
   const { data: inventory, isLoading } = useListInventory({ view }, { query: { queryKey: getListInventoryQueryKey({ view }) } });
@@ -37,17 +37,21 @@ export default function Inventory() {
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   const handleReceive = () => {
-    if (!form.productId || !form.boxesPurchased || !form.costPerUnit || !form.expiryDate) {
+    if (!form.productId || !form.boxesPurchased || !form.costPerUnit || !form.sellingPricePerUnit || !form.expiryDate) {
       toast({ title: "Please fill required fields", variant: "destructive" }); return;
     }
     receiveInventory.mutate({
       data: {
         productId: Number(form.productId),
+        unitType: form.unitType,
         batchNumber: form.batchNumber || undefined,
         boxesPurchased: Number(form.boxesPurchased),
         packsPerBox: Number(form.packsPerBox),
         tabsPerPack: Number(form.tabsPerPack),
         costPerUnit: Number(form.costPerUnit),
+        sellingPricePerUnit: Number(form.sellingPricePerUnit),
+        sellingPricePerPack: form.sellingPricePerPack ? Number(form.sellingPricePerPack) : undefined,
+        sellingPricePerBox: form.sellingPricePerBox ? Number(form.sellingPricePerBox) : undefined,
         expiryDate: new Date(form.expiryDate) as any,
         vendorId: form.vendorId ? Number(form.vendorId) : undefined,
         paymentAccountId: form.paymentAccountId ? Number(form.paymentAccountId) : undefined,
@@ -57,7 +61,7 @@ export default function Inventory() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey({}) });
         setDialogOpen(false);
-        setForm({ productId: "", batchNumber: "", boxesPurchased: "", packsPerBox: "10", tabsPerPack: "10", costPerUnit: "", expiryDate: "", vendorId: "", paymentAccountId: "", notes: "" });
+        setForm({ productId: "", unitType: "tablet", batchNumber: "", boxesPurchased: "", packsPerBox: "10", tabsPerPack: "10", costPerUnit: "", sellingPricePerUnit: "", sellingPricePerPack: "", sellingPricePerBox: "", expiryDate: "", vendorId: "", paymentAccountId: "", notes: "" });
         toast({ title: "Inventory received successfully" });
       },
       onError: () => toast({ title: "Failed to receive inventory", variant: "destructive" }),
@@ -157,6 +161,16 @@ export default function Inventory() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
+                <Label>Unit Type *</Label>
+                <Select value={form.unitType} onValueChange={v => setForm(f => ({ ...f, unitType: v as any }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tablet">Tablet</SelectItem>
+                    <SelectItem value="syrup">Syrup</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
                 <Label>Batch Number</Label>
                 <Input value={form.batchNumber} onChange={set("batchNumber")} placeholder="e.g. BTH-2024-01" />
               </div>
@@ -179,6 +193,18 @@ export default function Inventory() {
               <div className="space-y-1">
                 <Label>Cost per Tablet *</Label>
                 <Input type="number" step="0.01" value={form.costPerUnit} onChange={set("costPerUnit")} placeholder="0.00" />
+              </div>
+              <div className="space-y-1">
+                <Label>Selling Price / Tablet *</Label>
+                <Input type="number" step="0.01" value={form.sellingPricePerUnit} onChange={set("sellingPricePerUnit")} placeholder="0.00" />
+              </div>
+              <div className="space-y-1">
+                <Label>Selling Price / Pack</Label>
+                <Input type="number" step="0.01" value={form.sellingPricePerPack} onChange={set("sellingPricePerPack")} placeholder="0.00" />
+              </div>
+              <div className="space-y-1">
+                <Label>Selling Price / Box</Label>
+                <Input type="number" step="0.01" value={form.sellingPricePerBox} onChange={set("sellingPricePerBox")} placeholder="0.00" />
               </div>
             </div>
             <div className="space-y-1">

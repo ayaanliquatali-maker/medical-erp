@@ -35,8 +35,6 @@ async function getProductWithStock(productId: number) {
     .where(eq(inventoryBatchesTable.productId, productId));
 
   const totalTablets = batches.reduce((sum, b) => sum + b.remainingTablets, 0);
-  const totalPacks = totalTablets / product.tabsPerPack;
-  const totalBoxes = totalPacks / product.packsPerBox;
 
   const activeBatches = batches
     .filter(b => b.remainingTablets > 0 && new Date(b.expiryDate) > new Date())
@@ -50,6 +48,13 @@ async function getProductWithStock(productId: number) {
   const sellingPricePerPack = fifoBatch ? parseFloat(fifoBatch.sellingPricePerPack as string) : 0;
   const sellingPricePerBox = fifoBatch ? parseFloat(fifoBatch.sellingPricePerBox as string) : 0;
 
+  // Use batch unit types for pack/box calculations
+  const fifoTabsPerPack = fifoBatch ? fifoBatch.tabsPerPack : 1;
+  const fifoPacksPerBox = fifoBatch ? fifoBatch.packsPerBox : 1;
+  const totalPacks = totalTablets / fifoTabsPerPack;
+  const totalBoxes = totalPacks / fifoPacksPerBox;
+  const unitType = fifoBatch ? fifoBatch.unitType : (batches[0]?.unitType ?? "tablet");
+
   return {
     ...product,
     sellingPricePerUnit,
@@ -59,6 +64,9 @@ async function getProductWithStock(productId: number) {
     totalPacks,
     totalBoxes,
     nearestExpiry,
+    unitType,
+    tabsPerPack: fifoTabsPerPack,
+    packsPerBox: fifoPacksPerBox,
   };
 }
 

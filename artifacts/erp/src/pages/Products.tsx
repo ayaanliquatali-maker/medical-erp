@@ -20,15 +20,11 @@ type ProductForm = {
   name: string;
   genericName: string;
   category: string;
-  unitType: "tablet" | "syrup";
-  tabsPerPack: string;
-  packsPerBox: string;
   reorderLevel: string;
 };
 
 const emptyForm: ProductForm = {
-  name: "", genericName: "", category: "", unitType: "tablet",
-  tabsPerPack: "10", packsPerBox: "10", reorderLevel: "50",
+  name: "", genericName: "", category: "", reorderLevel: "50",
 };
 
 export default function Products() {
@@ -49,7 +45,6 @@ export default function Products() {
   const openEdit = (p: any) => {
     setForm({
       name: p.name, genericName: p.genericName ?? "", category: p.category ?? "",
-      unitType: p.unitType, tabsPerPack: String(p.tabsPerPack), packsPerBox: String(p.packsPerBox),
       reorderLevel: String(p.reorderLevel ?? 50),
     });
     setEditingId(p.id);
@@ -66,9 +61,6 @@ export default function Products() {
       name: form.name,
       genericName: form.genericName || undefined,
       category: form.category || undefined,
-      unitType: form.unitType,
-      tabsPerPack: Number(form.tabsPerPack),
-      packsPerBox: Number(form.packsPerBox),
       reorderLevel: Number(form.reorderLevel) || 50,
     };
     if (!data.name) {
@@ -120,7 +112,6 @@ export default function Products() {
             <TableRow>
               <TableHead>Name</TableHead>
               <TableHead>Category</TableHead>
-              <TableHead>Type</TableHead>
               <TableHead className="text-right">Selling Price / Unit</TableHead>
               <TableHead className="text-right">Stock</TableHead>
               <TableHead>Status</TableHead>
@@ -130,11 +121,11 @@ export default function Products() {
           <TableBody>
             {isLoading ? [...Array(5)].map((_, i) => (
               <TableRow key={i}>
-                {[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}
+                {[...Array(6)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}
               </TableRow>
             )) : products?.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No products found. Add your first product.</TableCell>
+                <TableCell colSpan={6} className="text-center h-32 text-muted-foreground">No products found. Add your first product.</TableCell>
               </TableRow>
             ) : products?.map(product => (
               <TableRow key={product.id}>
@@ -143,7 +134,6 @@ export default function Products() {
                   <div className="text-xs text-muted-foreground">{product.genericName}</div>
                 </TableCell>
                 <TableCell>{product.category || "-"}</TableCell>
-                <TableCell className="capitalize">{product.unitType}</TableCell>
                 <TableCell className="text-right">
                   {(product.sellingPricePerUnit ?? 0) > 0
                     ? `₨${(product.sellingPricePerUnit ?? 0).toFixed(2)}`
@@ -151,7 +141,7 @@ export default function Products() {
                   }
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="font-medium">{product.totalTablets} {product.unitType}s</div>
+                  <div className="font-medium">{product.totalTablets} units</div>
                   {product.totalTablets <= (product.reorderLevel ?? 50) && (
                     <div className="text-xs text-destructive flex items-center justify-end gap-1 mt-1">
                       <AlertCircle className="w-3 h-3" /> Low Stock
@@ -192,31 +182,13 @@ export default function Products() {
                 <Label>Category</Label>
                 <Input value={form.category} onChange={set("category")} placeholder="e.g. Analgesic" />
               </div>
-              <div className="space-y-1">
-                <Label>Unit Type</Label>
-                <Select value={form.unitType} onValueChange={v => setForm(f => ({ ...f, unitType: v as any }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tablet">Tablet</SelectItem>
-                    <SelectItem value="syrup">Syrup</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Tabs per Pack</Label>
-                <Input type="number" value={form.tabsPerPack} onChange={set("tabsPerPack")} />
-              </div>
-              <div className="space-y-1">
-                <Label>Packs per Box</Label>
-                <Input type="number" value={form.packsPerBox} onChange={set("packsPerBox")} />
-              </div>
               <div className="col-span-2 space-y-1">
-                <Label>Reorder Level (tablets)</Label>
+                <Label>Reorder Level (units)</Label>
                 <Input type="number" value={form.reorderLevel} onChange={set("reorderLevel")} />
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Pricing (cost &amp; selling price) is set when receiving inventory under the Inventory section.
+              Unit type (tablet/syrup), pack/box sizes, and pricing are set when receiving inventory under the Inventory section.
             </p>
           </div>
           <DialogFooter>

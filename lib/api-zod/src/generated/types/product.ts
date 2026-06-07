@@ -14,9 +14,9 @@ export interface Product {
   genericName?: string | null;
   /** @nullable */
   category?: string | null;
-  unitType: ProductUnitType;
-  tabsPerPack: number;
-  packsPerBox: number;
+  unitType?: ProductUnitType;
+  tabsPerPack?: number;
+  packsPerBox?: number;
   sellingPricePerUnit: number;
   sellingPricePerPack?: number;
   sellingPricePerBox?: number;

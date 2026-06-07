@@ -381,18 +381,40 @@ router.get("/analytics/income-statement", async (req, res): Promise<void> => {
     expenses = expenses.filter(e => e.date.startsWith(year));
   }
 
-  // Compute COGS from sale lines × product cost
+  // Compute COGS from sale lines × average batch cost per product
   const allSaleLines = await db
     .select({
       saleId: saleLinesTable.saleId,
+      productId: saleLinesTable.productId,
       quantity: saleLinesTable.quantity,
       unitType: saleLinesTable.unitType,
-      costPerUnit: productsTable.costPerUnit,
-      tabsPerPack: productsTable.tabsPerPack,
-      packsPerBox: productsTable.packsPerBox,
     })
     .from(saleLinesTable)
     .innerJoin(productsTable, eq(saleLinesTable.productId, productsTable.id));
+
+  const allInventory = await db
+    .select({
+      productId: inventoryBatchesTable.productId,
+      costPerUnit: inventoryBatchesTable.costPerUnit,
+      totalTablets: inventoryBatchesTable.totalTablets,
+      tabsPerPack: inventoryBatchesTable.tabsPerPack,
+      packsPerBox: inventoryBatchesTable.packsPerBox,
+    })
+    .from(inventoryBatchesTable);
+
+  // Compute average cost per unit per product
+  const costMap = new Map<number, number>();
+  const productCostTotal = new Map<number, { costTotal: number; tabletTotal: number }>();
+  for (const inv of allInventory) {
+    const cost = parseFloat(inv.costPerUnit as string);
+    const existing = productCostTotal.get(inv.productId) ?? { costTotal: 0, tabletTotal: 0 };
+    existing.costTotal += cost * inv.totalTablets;
+    existing.tabletTotal += inv.totalTablets;
+    productCostTotal.set(inv.productId, existing);
+  }
+  for (const [pid, { costTotal, tabletTotal }] of productCostTotal) {
+    costMap.set(pid, tabletTotal > 0 ? costTotal / tabletTotal : 0);
+  }
 
   const saleIdSet = new Set(sales.map(s => s.id));
   const filteredLines = allSaleLines.filter(l => saleIdSet.has(l.saleId));
@@ -400,10 +422,14 @@ router.get("/analytics/income-statement", async (req, res): Promise<void> => {
   let totalCOGS = 0;
   for (const line of filteredLines) {
     const qty = parseFloat(line.quantity as string);
-    const cost = parseFloat(line.costPerUnit as string);
+    const cost = costMap.get(line.productId) ?? 0;
+    const productBatches = allInventory.filter(i => i.productId === line.productId);
+    const activeBatch = productBatches[0];
+    const tabsPerPack = activeBatch ? activeBatch.totalTablets / activeBatch.packsPerBox : 1;
+    const packsPerBox = activeBatch ? activeBatch.packsPerBox : 1;
     let tablets = qty;
-    if (line.unitType === "pack") tablets = qty * line.tabsPerPack;
-    else if (line.unitType === "box") tablets = qty * line.tabsPerPack * line.packsPerBox;
+    if (line.unitType === "pack") tablets = qty * tabsPerPack;
+    else if (line.unitType === "box") tablets = qty * tabsPerPack * packsPerBox;
     totalCOGS += tablets * cost;
   }
 

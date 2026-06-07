@@ -5,6 +5,7 @@
  * MediERP - Medical Store ERP API
  * OpenAPI spec version: 0.1.0
  */
+import type { InventoryBatchUnitType } from './inventoryBatchUnitType';
 
 export interface InventoryBatch {
   id: number;
@@ -12,6 +13,7 @@ export interface InventoryBatch {
   productName: string;
   /** @nullable */
   batchNumber?: string | null;
+  unitType: InventoryBatchUnitType;
   boxesPurchased: number;
   packsPerBox: number;
   tabsPerPack: number;

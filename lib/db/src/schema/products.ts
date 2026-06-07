@@ -7,9 +7,6 @@ export const productsTable = pgTable("products", {
   name: text("name").notNull(),
   genericName: text("generic_name"),
   category: text("category"),
-  unitType: text("unit_type").notNull().default("tablet"), // 'tablet' | 'syrup'
-  tabsPerPack: integer("tabs_per_pack").notNull().default(10),
-  packsPerBox: integer("packs_per_box").notNull().default(10),
   reorderLevel: integer("reorder_level").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

@@ -940,7 +940,7 @@ components:
     # ── PRODUCT ──────────────────────────────────────────────
     Product:
       type: object
-      required: [id, name, unitType, tabsPerPack, packsPerBox, sellingPricePerUnit, reorderLevel, isActive, totalTablets, createdAt]
+      required: [id, name, sellingPricePerUnit, reorderLevel, isActive, totalTablets, createdAt]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -964,16 +964,11 @@ components:
 
     ProductInput:
       type: object
-      required: [name, unitType, tabsPerPack, packsPerBox]
+      required: [name]
       properties:
         name: { type: string }
         genericName: { type: string }
         category: { type: string }
-        unitType:
-          type: string
-          enum: [tablet, syrup]
-        tabsPerPack: { type: integer }
-        packsPerBox: { type: integer }
         reorderLevel: { type: integer }
 
     ProductUpdate:
@@ -982,20 +977,21 @@ components:
         name: { type: string }
         genericName: { type: string }
         category: { type: string }
-        tabsPerPack: { type: integer }
-        packsPerBox: { type: integer }
         reorderLevel: { type: integer }
         isActive: { type: boolean }
 
     # ── INVENTORY ────────────────────────────────────────────
     InventoryBatch:
       type: object
-      required: [id, productId, productName, boxesPurchased, packsPerBox, tabsPerPack, totalTablets, remainingTablets, costPerUnit, sellingPricePerUnit, expiryDate, receivedAt]
+      required: [id, productId, productName, unitType, boxesPurchased, packsPerBox, tabsPerPack, totalTablets, remainingTablets, costPerUnit, sellingPricePerUnit, expiryDate, receivedAt]
       properties:
         id: { type: integer }
         productId: { type: integer }
         productName: { type: string }
         batchNumber: { type: ["string", "null"] }
+        unitType:
+          type: string
+          enum: [tablet, syrup]
         boxesPurchased: { type: integer }
         packsPerBox: { type: integer }
         tabsPerPack: { type: integer }
@@ -1015,10 +1011,13 @@ components:
 
     InventoryReceiptInput:
       type: object
-      required: [productId, boxesPurchased, packsPerBox, tabsPerPack, costPerUnit, sellingPricePerUnit, expiryDate]
+      required: [productId, unitType, boxesPurchased, packsPerBox, tabsPerPack, costPerUnit, sellingPricePerUnit, expiryDate]
       properties:
         productId: { type: integer }
         batchNumber: { type: string }
+        unitType:
+          type: string
+          enum: [tablet, syrup]
         boxesPurchased: { type: integer }
         packsPerBox: { type: integer }
         tabsPerPack: { type: integer }

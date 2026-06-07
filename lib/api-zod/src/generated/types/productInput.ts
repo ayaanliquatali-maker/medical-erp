@@ -5,14 +5,10 @@
  * MediERP - Medical Store ERP API
  * OpenAPI spec version: 0.1.0
  */
-import type { ProductInputUnitType } from './productInputUnitType';
 
 export interface ProductInput {
   name: string;
   genericName?: string;
   category?: string;
-  unitType: ProductInputUnitType;
-  tabsPerPack: number;
-  packsPerBox: number;
   reorderLevel?: number;
 }

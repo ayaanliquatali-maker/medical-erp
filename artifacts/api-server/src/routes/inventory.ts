@@ -31,16 +31,13 @@ async function enrichBatch(batch: typeof inventoryBatchesTable.$inferSelect) {
     ? await db.query.vendorsTable.findFirst({ where: eq(vendorsTable.id, batch.vendorId) })
     : null;
 
-  const tabsPerPack = product?.tabsPerPack ?? 1;
-  const packsPerBox = product?.packsPerBox ?? 1;
-
   return {
     ...batch,
     costPerUnit: parseFloat(batch.costPerUnit as string),
     productName: product?.name ?? "",
     vendorName: vendor?.name ?? null,
-    remainingPacks: batch.remainingTablets / tabsPerPack,
-    remainingBoxes: batch.remainingTablets / tabsPerPack / packsPerBox,
+    remainingPacks: batch.remainingTablets / batch.tabsPerPack,
+    remainingBoxes: batch.remainingTablets / batch.tabsPerPack / batch.packsPerBox,
   };
 }
 
@@ -56,18 +53,21 @@ router.get("/inventory/alerts", async (_req, res): Promise<void> => {
   for (const product of products) {
     const productBatches = allBatches.filter(b => b.productId === product.id);
     const totalTablets = productBatches.reduce((sum, b) => sum + b.remainingTablets, 0);
-    const totalPacks = totalTablets / product.tabsPerPack;
-    const totalBoxes = totalPacks / product.packsPerBox;
     const nearestExpiry = productBatches
       .filter(b => b.remainingTablets > 0)
       .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))[0]?.expiryDate ?? null;
 
+    const activeBatch = productBatches
+      .filter(b => b.remainingTablets > 0 && b.expiryDate >= today)
+      .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))[0];
+
+    const tabsPerPack = activeBatch?.tabsPerPack ?? 1;
+    const packsPerBox = activeBatch?.packsPerBox ?? 1;
+    const totalPacks = totalTablets / tabsPerPack;
+    const totalBoxes = totalPacks / packsPerBox;
+
     const enrichedProduct = {
       ...product,
-      costPerUnit: parseFloat(product.costPerUnit as string),
-      sellingPricePerUnit: parseFloat(product.sellingPricePerUnit as string),
-      sellingPricePerPack: parseFloat(product.sellingPricePerPack as string),
-      sellingPricePerBox: parseFloat(product.sellingPricePerBox as string),
       totalTablets,
       totalPacks,
       totalBoxes,
@@ -160,12 +160,16 @@ router.post("/inventory", async (req, res): Promise<void> => {
   const [batch] = await db.insert(inventoryBatchesTable).values({
     productId: data.productId,
     batchNumber: data.batchNumber,
+    unitType: data.unitType,
     boxesPurchased: data.boxesPurchased,
     packsPerBox: data.packsPerBox,
     tabsPerPack: data.tabsPerPack,
     totalTablets,
     remainingTablets: totalTablets,
     costPerUnit: data.costPerUnit.toString(),
+    sellingPricePerUnit: data.sellingPricePerUnit?.toString() ?? "0",
+    sellingPricePerPack: data.sellingPricePerPack?.toString() ?? "0",
+    sellingPricePerBox: data.sellingPricePerBox?.toString() ?? "0",
     expiryDate: data.expiryDate instanceof Date ? data.expiryDate.toISOString().slice(0, 10) : String(data.expiryDate),
     vendorId: data.vendorId,
     journalEntryId,

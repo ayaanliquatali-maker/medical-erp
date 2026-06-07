@@ -115,10 +115,20 @@ router.post("/sales", async (req, res): Promise<void> => {
       return;
     }
 
+    const activeBatch = (await db
+      .select()
+      .from(inventoryBatchesTable)
+      .where(eq(inventoryBatchesTable.productId, line.productId))
+      .orderBy(asc(inventoryBatchesTable.expiryDate))
+      .limit(1))[0];
+
+    const tabsPerPack = activeBatch ? activeBatch.tabsPerPack : 1;
+    const packsPerBox = activeBatch ? activeBatch.packsPerBox : 1;
+
     let tabletsNeeded = 0;
     if (line.unitType === "tablet") tabletsNeeded = line.quantity;
-    else if (line.unitType === "pack") tabletsNeeded = line.quantity * product.tabsPerPack;
-    else if (line.unitType === "box") tabletsNeeded = line.quantity * product.tabsPerPack * product.packsPerBox;
+    else if (line.unitType === "pack") tabletsNeeded = line.quantity * tabsPerPack;
+    else if (line.unitType === "box") tabletsNeeded = line.quantity * tabsPerPack * packsPerBox;
 
     const lineDiscount = line.discount ?? 0;
     const lineTotal = line.quantity * line.unitPrice - lineDiscount;

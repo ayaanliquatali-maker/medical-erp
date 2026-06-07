@@ -24,9 +24,6 @@ async function buildStoreContext(): Promise<string> {
       unitType: saleLinesTable.unitType,
       unitPrice: saleLinesTable.unitPrice,
       total: saleLinesTable.total,
-      costPerUnit: productsTable.costPerUnit,
-      tabsPerPack: productsTable.tabsPerPack,
-      packsPerBox: productsTable.packsPerBox,
     })
     .from(saleLinesTable)
     .innerJoin(productsTable, eq(saleLinesTable.productId, productsTable.id));
@@ -34,14 +31,18 @@ async function buildStoreContext(): Promise<string> {
   const totalRevenue = allSales.reduce((s, r) => s + parseFloat(r.total as string), 0);
   const totalExpenses = allExpenses.reduce((s, e) => s + parseFloat(e.amount as string), 0);
 
-  // COGS
+  // COGS from batch costs
   let totalCOGS = 0;
   for (const line of allSaleLines) {
     const qty = parseFloat(line.quantity as string);
-    const cost = parseFloat(line.costPerUnit as string);
+    const productBatches = allBatches.filter(b => b.productId === line.productId);
+    const activeBatch = productBatches[0];
+    const cost = activeBatch ? parseFloat(activeBatch.costPerUnit as string) : 0;
+    const tabsPerPack = activeBatch ? activeBatch.tabsPerPack : 1;
+    const packsPerBox = activeBatch ? activeBatch.packsPerBox : 1;
     let tablets = qty;
-    if (line.unitType === "pack") tablets = qty * line.tabsPerPack;
-    else if (line.unitType === "box") tablets = qty * line.tabsPerPack * line.packsPerBox;
+    if (line.unitType === "pack") tablets = qty * tabsPerPack;
+    else if (line.unitType === "box") tablets = qty * tabsPerPack * packsPerBox;
     totalCOGS += tablets * cost;
   }
   const grossProfit = totalRevenue - totalCOGS;
@@ -57,13 +58,16 @@ async function buildStoreContext(): Promise<string> {
   const productDetails = allProducts.map(p => {
     const batches = allBatches.filter(b => b.productId === p.id);
     const remainingTablets = batches.reduce((s, b) => s + b.remainingTablets, 0);
-    const remainingPacks = Math.floor(remainingTablets / p.tabsPerPack);
-    const remainingBoxes = Math.floor(remainingPacks / p.packsPerBox);
+    const activeBatch = batches.filter(b => b.remainingTablets > 0).sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))[0];
+    const tabsPerPack = activeBatch?.tabsPerPack ?? 1;
+    const packsPerBox = activeBatch?.packsPerBox ?? 1;
+    const remainingPacks = Math.floor(remainingTablets / tabsPerPack);
+    const remainingBoxes = Math.floor(remainingPacks / packsPerBox);
 
-    const costPerTab = parseFloat(p.costPerUnit as string);
-    const sellPerTab = parseFloat(p.sellingPricePerUnit as string);
-    const sellPerPack = parseFloat(p.sellingPricePerPack as string);
-    const sellPerBox = parseFloat(p.sellingPricePerBox as string);
+    const costPerTab = activeBatch ? parseFloat(activeBatch.costPerUnit as string) : 0;
+    const sellPerTab = activeBatch ? parseFloat(activeBatch.sellingPricePerUnit as string) : 0;
+    const sellPerPack = activeBatch ? parseFloat(activeBatch.sellingPricePerPack as string) : 0;
+    const sellPerBox = activeBatch ? parseFloat(activeBatch.sellingPricePerBox as string) : 0;
 
     const costValue = remainingTablets * costPerTab;
     const sellingValue = remainingTablets * sellPerTab;
@@ -77,8 +81,8 @@ async function buildStoreContext(): Promise<string> {
     for (const line of productSaleLines) {
       const qty = parseFloat(line.quantity as string);
       let tablets = qty;
-      if (line.unitType === "pack") tablets = qty * line.tabsPerPack;
-      else if (line.unitType === "box") tablets = qty * line.tabsPerPack * line.packsPerBox;
+      if (line.unitType === "pack") tablets = qty * tabsPerPack;
+      else if (line.unitType === "box") tablets = qty * tabsPerPack * packsPerBox;
       totalTabletsSold += tablets;
       totalProductRevenue += parseFloat(line.total as string);
     }
@@ -86,7 +90,7 @@ async function buildStoreContext(): Promise<string> {
     const nearExpiry = batches.filter(b => b.remainingTablets > 0 && b.expiryDate <= in90Days && b.expiryDate >= today);
     const expired = batches.filter(b => b.remainingTablets > 0 && b.expiryDate < today);
 
-    const batchDetail = batches.filter(b => b.remainingTablets > 0).map(b => 
+    const batchDetail = batches.filter(b => b.remainingTablets > 0).map(b =>
       `  Batch ${b.batchNumber || b.id}: ${b.remainingTablets} tabs remaining, expiry ${b.expiryDate}, cost ₨${parseFloat(b.costPerUnit as string).toFixed(2)}/tab`
     ).join("\n");
 

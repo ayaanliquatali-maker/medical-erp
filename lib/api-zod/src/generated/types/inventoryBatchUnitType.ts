@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ProductInputUnitType = typeof ProductInputUnitType[keyof typeof ProductInputUnitType];
+export type InventoryBatchUnitType = typeof InventoryBatchUnitType[keyof typeof InventoryBatchUnitType];
 
 
-export const ProductInputUnitType = {
+export const InventoryBatchUnitType = {
   tablet: 'tablet',
   syrup: 'syrup',
 } as const;

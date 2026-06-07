@@ -5,10 +5,12 @@
  * MediERP - Medical Store ERP API
  * OpenAPI spec version: 0.1.0
  */
+import type { InventoryReceiptInputUnitType } from './inventoryReceiptInputUnitType';
 
 export interface InventoryReceiptInput {
   productId: number;
   batchNumber?: string;
+  unitType: InventoryReceiptInputUnitType;
   boxesPurchased: number;
   packsPerBox: number;
   tabsPerPack: number;

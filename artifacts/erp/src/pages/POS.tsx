@@ -50,8 +50,8 @@ export default function POS() {
     const product = products?.find(p => p.id === cart[index].productId);
     if (!product) return;
     const price = unitType === "tablet" ? product.sellingPricePerUnit
-      : unitType === "pack" ? (product.sellingPricePerPack ?? product.sellingPricePerUnit * product.tabsPerPack)
-      : (product.sellingPricePerBox ?? product.sellingPricePerUnit * product.tabsPerPack * product.packsPerBox);
+      : unitType === "pack" ? (product.sellingPricePerPack ?? product.sellingPricePerUnit * (product.tabsPerPack ?? 1))
+      : (product.sellingPricePerBox ?? product.sellingPricePerUnit * (product.tabsPerPack ?? 1) * (product.packsPerBox ?? 1));
     setCart(prev => prev.map((c, i) => i === index ? { ...c, unitType, unitPrice: price } : c));
   };
 
@@ -111,7 +111,7 @@ export default function POS() {
                   </div>
                   <div className="flex items-end justify-between mt-4">
                     <div className="text-lg font-bold text-primary">₨{product.sellingPricePerUnit.toFixed(2)}</div>
-                    <Badge variant={product.totalTablets > 0 ? "secondary" : "destructive"}>{product.totalTablets} tabs</Badge>
+                    <Badge variant={product.totalTablets > 0 ? "secondary" : "destructive"}>{product.totalTablets} units</Badge>
                   </div>
                 </CardContent>
               </Card>
