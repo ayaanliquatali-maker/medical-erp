@@ -1,0 +1,253 @@
+import { useState } from "react";
+import {
+  useListJournals, useCreateJournal, useDeleteJournal, useListAccounts,
+  getListJournalsQueryKey, getListAccountsQueryKey,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Plus, BookOpen, Trash2, PlusCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+
+type JournalLine = { accountId: string; debit: string; credit: string; description: string };
+const emptyLine = (): JournalLine => ({ accountId: "", debit: "", credit: "", description: "" });
+const today = () => new Date().toISOString().slice(0, 10);
+
+const getTypeColor = (type: string) => {
+  switch (type) {
+    case 'sale': return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200';
+    case 'purchase': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border-blue-200';
+    case 'expense': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200';
+    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300 border-gray-200';
+  }
+};
+
+export default function Journals() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [form, setForm] = useState({ date: today(), description: "", reference: "" });
+  const [lines, setLines] = useState<JournalLine[]>([emptyLine(), emptyLine()]);
+
+  const { data: journals, isLoading } = useListJournals({}, { query: { queryKey: getListJournalsQueryKey({}) } });
+  const { data: accounts } = useListAccounts({}, { query: { queryKey: getListAccountsQueryKey({}) } });
+  const createJournal = useCreateJournal();
+  const deleteJournal = useDeleteJournal();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const totalDebit = lines.reduce((s, l) => s + (Number(l.debit) || 0), 0);
+  const totalCredit = lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
+  const balanced = Math.abs(totalDebit - totalCredit) < 0.01 && totalDebit > 0;
+
+  const setLine = (i: number, k: keyof JournalLine) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setLines(ls => ls.map((l, j) => j === i ? { ...l, [k]: e.target.value } : l));
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: getListJournalsQueryKey({}) });
+
+  const handleSave = () => {
+    if (!form.description) { toast({ title: "Description is required", variant: "destructive" }); return; }
+    if (!balanced) { toast({ title: "Debits must equal credits", variant: "destructive" }); return; }
+    const validLines = lines.filter(l => l.accountId && (Number(l.debit) > 0 || Number(l.credit) > 0));
+    if (validLines.length < 2) { toast({ title: "At least 2 lines needed", variant: "destructive" }); return; }
+
+    createJournal.mutate({
+      data: {
+        date: new Date(form.date) as any,
+        description: form.description,
+        reference: form.reference || undefined,
+        lines: validLines.map(l => ({
+          accountId: Number(l.accountId),
+          debit: Number(l.debit) || 0,
+          credit: Number(l.credit) || 0,
+          description: l.description || undefined,
+        })),
+      }
+    }, {
+      onSuccess: () => {
+        invalidate();
+        setDialogOpen(false);
+        setForm({ date: today(), description: "", reference: "" });
+        setLines([emptyLine(), emptyLine()]);
+        toast({ title: "Journal entry created" });
+      },
+      onError: () => toast({ title: "Failed to create journal entry", variant: "destructive" }),
+    });
+  };
+
+  const handleDelete = () => {
+    if (!deleteId) return;
+    deleteJournal.mutate({ id: deleteId }, {
+      onSuccess: () => { invalidate(); setDeleteId(null); toast({ title: "Journal entry deleted" }); },
+      onError: () => toast({ title: "Failed to delete entry", variant: "destructive" }),
+    });
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Journal Entries</h1>
+          <p className="text-muted-foreground mt-1">General ledger transactions.</p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />Manual Entry</Button>
+      </div>
+
+      <div className="border rounded-md bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Reference</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead className="text-right">Debit</TableHead>
+              <TableHead className="text-right">Credit</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? [...Array(6)].map((_, i) => (
+              <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+            )) : journals?.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No journal entries yet. Entries are auto-created with sales and expenses.</TableCell>
+              </TableRow>
+            ) : journals?.map(journal => (
+              <TableRow key={journal.id} className="hover:bg-muted/50">
+                <TableCell className="whitespace-nowrap">{format(new Date(journal.date), "MMM d, yyyy")}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={`capitalize ${getTypeColor(journal.type)}`}>{journal.type}</Badge>
+                </TableCell>
+                <TableCell className="font-mono text-muted-foreground text-sm">{journal.reference || "-"}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="truncate max-w-48">{journal.description}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right font-medium">₨{(journal.totalDebit || 0).toFixed(2)}</TableCell>
+                <TableCell className="text-right font-medium">₨{(journal.totalCredit || 0).toFixed(2)}</TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setDeleteId(journal.id)}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Manual Entry Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Manual Journal Entry</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <Label>Date *</Label>
+                <Input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <Label>Description *</Label>
+                <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. Opening balance adjustment" />
+              </div>
+              <div className="space-y-1">
+                <Label>Reference</Label>
+                <Input value={form.reference} onChange={e => setForm(f => ({ ...f, reference: e.target.value }))} placeholder="e.g. JE-001" />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>Journal Lines</Label>
+                <Button variant="outline" size="sm" onClick={() => setLines(ls => [...ls, emptyLine()])}>
+                  <PlusCircle className="w-4 h-4 mr-1" /> Add Line
+                </Button>
+              </div>
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Account</TableHead>
+                      <TableHead className="w-28">Debit (₨)</TableHead>
+                      <TableHead className="w-28">Credit (₨)</TableHead>
+                      <TableHead className="w-8"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lines.map((line, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="p-2">
+                          <Select value={line.accountId} onValueChange={v => setLines(ls => ls.map((l, j) => j === i ? { ...l, accountId: v } : l))}>
+                            <SelectTrigger className="h-8"><SelectValue placeholder="Select account" /></SelectTrigger>
+                            <SelectContent>
+                              {accounts?.map(a => <SelectItem key={a.id} value={String(a.id)}>{a.code} — {a.name} ({a.type})</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Input className="h-8" type="number" step="0.01" value={line.debit} onChange={setLine(i, "debit")} placeholder="0.00" />
+                        </TableCell>
+                        <TableCell className="p-2">
+                          <Input className="h-8" type="number" step="0.01" value={line.credit} onChange={setLine(i, "credit")} placeholder="0.00" />
+                        </TableCell>
+                        <TableCell className="p-2">
+                          {lines.length > 2 && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setLines(ls => ls.filter((_, j) => j !== i))}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/30 font-medium">
+                      <TableCell className="p-2 text-sm">Totals</TableCell>
+                      <TableCell className="p-2 text-sm">₨{totalDebit.toFixed(2)}</TableCell>
+                      <TableCell className="p-2 text-sm">₨{totalCredit.toFixed(2)}</TableCell>
+                      <TableCell className="p-2">
+                        {totalDebit > 0 && (
+                          <span className={`text-xs font-medium ${balanced ? "text-green-600" : "text-destructive"}`}>
+                            {balanced ? "✓ Balanced" : "Unbalanced"}
+                          </span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSave} disabled={createJournal.isPending || !balanced}>
+              {createJournal.isPending ? "Saving…" : "Create Entry"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={o => !o && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Journal Entry?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete this journal entry and all its lines. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}

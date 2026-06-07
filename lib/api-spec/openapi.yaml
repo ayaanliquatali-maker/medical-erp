@@ -1,22 +1,41 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: MediERP - Medical Store ERP API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: products
+    description: Product/medicine management
+  - name: inventory
+    description: Inventory management
+  - name: accounts
+    description: Chart of accounts
+  - name: journals
+    description: Journal entries (double-entry)
+  - name: vendors
+    description: Vendor management
+  - name: expenses
+    description: Expense management
+  - name: sales
+    description: Point of sale and sales records
+  - name: receipt
+    description: Receipt settings
+  - name: analytics
+    description: Analytics and reporting
+  - name: ai
+    description: AI assistant
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +43,1517 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── PRODUCTS ──────────────────────────────────────────────
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List all products
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: isActive
+          in: query
+          schema: { type: boolean }
+        - name: lowStock
+          in: query
+          schema: { type: boolean }
+        - name: nearExpiry
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+    post:
+      operationId: createProduct
+      tags: [products]
+      summary: Create a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}:
+    get:
+      operationId: getProduct
+      tags: [products]
+      summary: Get a product by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    patch:
+      operationId: updateProduct
+      tags: [products]
+      summary: Update a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+    delete:
+      operationId: deleteProduct
+      tags: [products]
+      summary: Deactivate a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  /products/{id}/clear-stock:
+    post:
+      operationId: clearProductStock
+      tags: [products]
+      summary: Clear stock without journal entries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Stock cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+
+  # ── INVENTORY ─────────────────────────────────────────────
+  /inventory:
+    get:
+      operationId: listInventory
+      tags: [inventory]
+      summary: List inventory batches
+      parameters:
+        - name: productId
+          in: query
+          schema: { type: integer }
+        - name: view
+          in: query
+          schema:
+            type: string
+            enum: [tablets, packs, boxes]
+        - name: nearExpiry
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Inventory batches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryBatch"
+    post:
+      operationId: receiveInventory
+      tags: [inventory]
+      summary: Receive new inventory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryReceiptInput"
+      responses:
+        "201":
+          description: Inventory received
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryBatch"
+
+  /inventory/{id}:
+    get:
+      operationId: getInventoryBatch
+      tags: [inventory]
+      summary: Get an inventory batch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Inventory batch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryBatch"
+    patch:
+      operationId: updateInventoryBatch
+      tags: [inventory]
+      summary: Update inventory batch details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InventoryBatchUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryBatch"
+
+  /inventory/alerts:
+    get:
+      operationId: getInventoryAlerts
+      tags: [inventory]
+      summary: Get stock alerts (low stock, expiry, out of stock)
+      responses:
+        "200":
+          description: Inventory alerts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InventoryAlerts"
+
+  # ── CHART OF ACCOUNTS ─────────────────────────────────────
+  /accounts:
+    get:
+      operationId: listAccounts
+      tags: [accounts]
+      summary: List all accounts
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: parentId
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Account"
+    post:
+      operationId: createAccount
+      tags: [accounts]
+      summary: Create an account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /accounts/{id}:
+    get:
+      operationId: getAccount
+      tags: [accounts]
+      summary: Get an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+    patch:
+      operationId: updateAccount
+      tags: [accounts]
+      summary: Update an account
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AccountUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+    delete:
+      operationId: deleteAccount
+      tags: [accounts]
+      summary: Delete an account (only if no entries)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /accounts/{id}/balance:
+    get:
+      operationId: getAccountBalance
+      tags: [accounts]
+      summary: Get account balance and ledger
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Account balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccountBalance"
+
+  # ── JOURNAL ENTRIES ───────────────────────────────────────
+  /journals:
+    get:
+      operationId: listJournals
+      tags: [journals]
+      summary: List journal entries
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: accountId
+          in: query
+          schema: { type: integer }
+        - name: type
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Journal entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JournalEntry"
+    post:
+      operationId: createJournal
+      tags: [journals]
+      summary: Create a manual journal entry
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JournalInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+
+  /journals/{id}:
+    get:
+      operationId: getJournal
+      tags: [journals]
+      summary: Get a journal entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Journal entry
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+    delete:
+      operationId: deleteJournal
+      tags: [journals]
+      summary: Delete a journal entry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JournalEntry"
+
+  # ── VENDORS ───────────────────────────────────────────────
+  /vendors:
+    get:
+      operationId: listVendors
+      tags: [vendors]
+      summary: List all vendors
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Vendors
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Vendor"
+    post:
+      operationId: createVendor
+      tags: [vendors]
+      summary: Create a vendor
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  /vendors/{id}:
+    get:
+      operationId: getVendor
+      tags: [vendors]
+      summary: Get a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Vendor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    patch:
+      operationId: updateVendor
+      tags: [vendors]
+      summary: Update a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VendorUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+    delete:
+      operationId: deleteVendor
+      tags: [vendors]
+      summary: Delete a vendor
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Vendor"
+
+  # ── EXPENSES ──────────────────────────────────────────────
+  /expenses:
+    get:
+      operationId: listExpenses
+      tags: [expenses]
+      summary: List expenses
+      parameters:
+        - name: vendorId
+          in: query
+          schema: { type: integer }
+        - name: accountId
+          in: query
+          schema: { type: integer }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Expenses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Expense"
+    post:
+      operationId: createExpense
+      tags: [expenses]
+      summary: Record an expense (creates journal entry)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenseInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+
+  /expenses/{id}:
+    get:
+      operationId: getExpense
+      tags: [expenses]
+      summary: Get an expense
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Expense
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+    delete:
+      operationId: deleteExpense
+      tags: [expenses]
+      summary: Delete an expense
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expense"
+
+  # ── SALES / POS ───────────────────────────────────────────
+  /sales:
+    get:
+      operationId: listSales
+      tags: [sales]
+      summary: List sales
+      parameters:
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Sales
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Sale"
+    post:
+      operationId: createSale
+      tags: [sales]
+      summary: Create a sale (POS checkout)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaleInput"
+      responses:
+        "201":
+          description: Sale created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sale"
+
+  /sales/{id}:
+    get:
+      operationId: getSale
+      tags: [sales]
+      summary: Get a sale with line items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Sale
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sale"
+
+  /sales/{id}/receipt:
+    get:
+      operationId: getSaleReceipt
+      tags: [sales]
+      summary: Get receipt data for a sale
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receipt"
+
+  # ── RECEIPT SETTINGS ──────────────────────────────────────
+  /receipt-settings:
+    get:
+      operationId: getReceiptSettings
+      tags: [receipt]
+      summary: Get receipt settings
+      responses:
+        "200":
+          description: Receipt settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptSettings"
+    patch:
+      operationId: updateReceiptSettings
+      tags: [receipt]
+      summary: Update receipt settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReceiptSettingsUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptSettings"
+
+  # ── ANALYTICS ─────────────────────────────────────────────
+  /analytics/dashboard:
+    get:
+      operationId: getDashboardStats
+      tags: [analytics]
+      summary: Dashboard summary stats
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /analytics/cashflow:
+    get:
+      operationId: getCashflow
+      tags: [analytics]
+      summary: Cashflow report
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Cashflow data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CashflowReport"
+
+  /analytics/revenue:
+    get:
+      operationId: getRevenueAnalytics
+      tags: [analytics]
+      summary: Revenue analytics by product/period
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Revenue analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RevenueReport"
+
+  /analytics/top-products:
+    get:
+      operationId: getTopProducts
+      tags: [analytics]
+      summary: Most selling and most purchased products
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+        - name: year
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Top products
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TopProductsReport"
+
+  /analytics/expenses:
+    get:
+      operationId: getExpenseAnalytics
+      tags: [analytics]
+      summary: Expense analytics by account and vendor
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Expense analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExpenseReport"
+
+  /analytics/receivables-payables:
+    get:
+      operationId: getReceivablesPayables
+      tags: [analytics]
+      summary: Receivables and payables summary
+      responses:
+        "200":
+          description: Receivables and payables
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceivablesPayables"
+
+  /analytics/income-statement:
+    get:
+      operationId: getIncomeStatement
+      tags: [analytics]
+      summary: Income statement
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [monthly, quarterly, yearly]
+        - name: year
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Income statement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncomeStatement"
+
+  /analytics/balance-sheet:
+    get:
+      operationId: getBalanceSheet
+      tags: [analytics]
+      summary: Balance sheet
+      parameters:
+        - name: asOf
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Balance sheet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BalanceSheet"
+
+  /analytics/best-periods:
+    get:
+      operationId: getBestPeriods
+      tags: [analytics]
+      summary: Best performing months, quarters, years
+      responses:
+        "200":
+          description: Best periods
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BestPeriods"
+
+  # ── AI CHAT ───────────────────────────────────────────────
+  /ai/chat:
+    post:
+      operationId: aiChat
+      tags: [ai]
+      summary: AI chat about the medical store data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiChatInput"
+      responses:
+        "200":
+          description: AI response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiAssistantResponse"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
 
+    # ── PRODUCT ──────────────────────────────────────────────
+    Product:
+      type: object
+      required: [id, name, unitType, tabsPerPack, packsPerBox, sellingPricePerUnit, reorderLevel, isActive, totalTablets, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        genericName: { type: ["string", "null"] }
+        category: { type: ["string", "null"] }
+        unitType:
+          type: string
+          enum: [tablet, syrup]
+        tabsPerPack: { type: integer }
+        packsPerBox: { type: integer }
+        sellingPricePerUnit: { type: number }
+        sellingPricePerPack: { type: number }
+        sellingPricePerBox: { type: number }
+        reorderLevel: { type: integer }
+        isActive: { type: boolean }
+        totalTablets: { type: integer }
+        totalPacks: { type: number }
+        totalBoxes: { type: number }
+        nearestExpiry: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    ProductInput:
+      type: object
+      required: [name, unitType, tabsPerPack, packsPerBox]
+      properties:
+        name: { type: string }
+        genericName: { type: string }
+        category: { type: string }
+        unitType:
+          type: string
+          enum: [tablet, syrup]
+        tabsPerPack: { type: integer }
+        packsPerBox: { type: integer }
+        reorderLevel: { type: integer }
+
+    ProductUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        genericName: { type: string }
+        category: { type: string }
+        tabsPerPack: { type: integer }
+        packsPerBox: { type: integer }
+        reorderLevel: { type: integer }
+        isActive: { type: boolean }
+
+    # ── INVENTORY ────────────────────────────────────────────
+    InventoryBatch:
+      type: object
+      required: [id, productId, productName, boxesPurchased, packsPerBox, tabsPerPack, totalTablets, remainingTablets, costPerUnit, sellingPricePerUnit, expiryDate, receivedAt]
+      properties:
+        id: { type: integer }
+        productId: { type: integer }
+        productName: { type: string }
+        batchNumber: { type: ["string", "null"] }
+        boxesPurchased: { type: integer }
+        packsPerBox: { type: integer }
+        tabsPerPack: { type: integer }
+        totalTablets: { type: integer }
+        remainingTablets: { type: integer }
+        remainingPacks: { type: number }
+        remainingBoxes: { type: number }
+        costPerUnit: { type: number }
+        sellingPricePerUnit: { type: number }
+        sellingPricePerPack: { type: number }
+        sellingPricePerBox: { type: number }
+        expiryDate: { type: string, format: date }
+        receivedAt: { type: string }
+        vendorId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        journalEntryId: { type: ["integer", "null"] }
+
+    InventoryReceiptInput:
+      type: object
+      required: [productId, boxesPurchased, packsPerBox, tabsPerPack, costPerUnit, sellingPricePerUnit, expiryDate]
+      properties:
+        productId: { type: integer }
+        batchNumber: { type: string }
+        boxesPurchased: { type: integer }
+        packsPerBox: { type: integer }
+        tabsPerPack: { type: integer }
+        costPerUnit: { type: number }
+        sellingPricePerUnit: { type: number }
+        sellingPricePerPack: { type: number }
+        sellingPricePerBox: { type: number }
+        expiryDate: { type: string, format: date }
+        vendorId: { type: integer }
+        paymentAccountId: { type: integer }
+        notes: { type: string }
+
+    InventoryBatchUpdate:
+      type: object
+      properties:
+        batchNumber: { type: string }
+        costPerUnit: { type: number }
+        sellingPricePerUnit: { type: number }
+        sellingPricePerPack: { type: number }
+        sellingPricePerBox: { type: number }
+        expiryDate: { type: string, format: date }
+        vendorId: { type: integer }
+
+    InventoryAlerts:
+      type: object
+      required: [outOfStock, lowStock, nearExpiry, expired]
+      properties:
+        outOfStock:
+          type: array
+          items: { $ref: "#/components/schemas/Product" }
+        lowStock:
+          type: array
+          items: { $ref: "#/components/schemas/Product" }
+        nearExpiry:
+          type: array
+          items: { $ref: "#/components/schemas/InventoryBatch" }
+        expired:
+          type: array
+          items: { $ref: "#/components/schemas/InventoryBatch" }
+
+    # ── ACCOUNT ──────────────────────────────────────────────
+    Account:
+      type: object
+      required: [id, name, type, code, isSystem, isActive, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        type:
+          type: string
+          enum: [asset, liability, equity, revenue, expense]
+        code: { type: string }
+        parentId: { type: ["integer", "null"] }
+        parentName: { type: ["string", "null"] }
+        isSystem: { type: boolean }
+        isActive: { type: boolean }
+        balance: { type: number }
+        description: { type: ["string", "null"] }
+        createdAt: { type: string }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/Account" }
+
+    AccountInput:
+      type: object
+      required: [name, type, code]
+      properties:
+        name: { type: string }
+        type:
+          type: string
+          enum: [asset, liability, equity, revenue, expense]
+        code: { type: string }
+        parentId: { type: integer }
+        description: { type: string }
+
+    AccountUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        code: { type: string }
+        description: { type: string }
+        isActive: { type: boolean }
+
+    AccountBalance:
+      type: object
+      required: [accountId, accountName, balance, debits, credits]
+      properties:
+        accountId: { type: integer }
+        accountName: { type: string }
+        balance: { type: number }
+        debits: { type: number }
+        credits: { type: number }
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/LedgerLine" }
+
+    LedgerLine:
+      type: object
+      required: [id, date, description, debit, credit, balance]
+      properties:
+        id: { type: integer }
+        date: { type: string }
+        description: { type: string }
+        reference: { type: ["string", "null"] }
+        debit: { type: number }
+        credit: { type: number }
+        balance: { type: number }
+
+    # ── JOURNAL ───────────────────────────────────────────────
+    JournalEntry:
+      type: object
+      required: [id, date, description, type, lines, createdAt]
+      properties:
+        id: { type: integer }
+        date: { type: string, format: date }
+        description: { type: string }
+        reference: { type: ["string", "null"] }
+        type:
+          type: string
+          enum: [manual, sale, purchase, expense, adjustment]
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/JournalLine" }
+        totalDebit: { type: number }
+        totalCredit: { type: number }
+        createdAt: { type: string }
+
+    JournalLine:
+      type: object
+      required: [id, accountId, accountName, debit, credit]
+      properties:
+        id: { type: integer }
+        accountId: { type: integer }
+        accountName: { type: string }
+        debit: { type: number }
+        credit: { type: number }
+        description: { type: ["string", "null"] }
+
+    JournalInput:
+      type: object
+      required: [date, description, lines]
+      properties:
+        date: { type: string, format: date }
+        description: { type: string }
+        reference: { type: string }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/JournalLineInput" }
+
+    JournalLineInput:
+      type: object
+      required: [accountId, debit, credit]
+      properties:
+        accountId: { type: integer }
+        debit: { type: number }
+        credit: { type: number }
+        description: { type: string }
+
+    # ── VENDOR ───────────────────────────────────────────────
+    Vendor:
+      type: object
+      required: [id, name, createdAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        contactName: { type: ["string", "null"] }
+        phone: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        address: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        totalPurchases: { type: number }
+        totalExpenses: { type: number }
+        createdAt: { type: string }
+
+    VendorInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        contactName: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+        notes: { type: string }
+
+    VendorUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        contactName: { type: string }
+        phone: { type: string }
+        email: { type: string }
+        address: { type: string }
+        notes: { type: string }
+
+    # ── EXPENSE ──────────────────────────────────────────────
+    Expense:
+      type: object
+      required: [id, date, amount, description, expenseAccountId, paymentAccountId, createdAt]
+      properties:
+        id: { type: integer }
+        date: { type: string, format: date }
+        amount: { type: number }
+        description: { type: string }
+        expenseAccountId: { type: integer }
+        expenseAccountName: { type: string }
+        paymentAccountId: { type: integer }
+        paymentAccountName: { type: string }
+        vendorId: { type: ["integer", "null"] }
+        vendorName: { type: ["string", "null"] }
+        journalEntryId: { type: ["integer", "null"] }
+        reference: { type: ["string", "null"] }
+        createdAt: { type: string }
+
+    ExpenseInput:
+      type: object
+      required: [date, amount, description, expenseAccountId, paymentAccountId]
+      properties:
+        date: { type: string, format: date }
+        amount: { type: number }
+        description: { type: string }
+        expenseAccountId: { type: integer }
+        paymentAccountId: { type: integer }
+        vendorId: { type: integer }
+        reference: { type: string }
+
+    # ── SALE ─────────────────────────────────────────────────
+    Sale:
+      type: object
+      required: [id, saleNumber, date, subtotal, discount, total, paymentAccountId, lines, createdAt]
+      properties:
+        id: { type: integer }
+        saleNumber: { type: string }
+        date: { type: string, format: date }
+        customerName: { type: ["string", "null"] }
+        subtotal: { type: number }
+        discount: { type: number }
+        total: { type: number }
+        paymentAccountId: { type: integer }
+        paymentAccountName: { type: string }
+        journalEntryId: { type: ["integer", "null"] }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/SaleLine" }
+        createdAt: { type: string }
+
+    SaleLine:
+      type: object
+      required: [id, productId, productName, unitType, quantity, unitPrice, total]
+      properties:
+        id: { type: integer }
+        productId: { type: integer }
+        productName: { type: string }
+        unitType:
+          type: string
+          enum: [tablet, pack, box]
+        quantity: { type: number }
+        unitPrice: { type: number }
+        discount: { type: number }
+        total: { type: number }
+
+    SaleInput:
+      type: object
+      required: [date, paymentAccountId, lines]
+      properties:
+        date: { type: string, format: date }
+        customerName: { type: string }
+        discount: { type: number }
+        paymentAccountId: { type: integer }
+        lines:
+          type: array
+          items: { $ref: "#/components/schemas/SaleLineInput" }
+
+    SaleLineInput:
+      type: object
+      required: [productId, unitType, quantity, unitPrice]
+      properties:
+        productId: { type: integer }
+        unitType:
+          type: string
+          enum: [tablet, pack, box]
+        quantity: { type: number }
+        unitPrice: { type: number }
+        discount: { type: number }
+
+    Receipt:
+      type: object
+      required: [sale, settings]
+      properties:
+        sale: { $ref: "#/components/schemas/Sale" }
+        settings: { $ref: "#/components/schemas/ReceiptSettings" }
+
+    # ── RECEIPT SETTINGS ─────────────────────────────────────
+    ReceiptSettings:
+      type: object
+      required: [id]
+      properties:
+        id: { type: integer }
+        storeName: { type: ["string", "null"] }
+        storeAddress: { type: ["string", "null"] }
+        storePhone: { type: ["string", "null"] }
+        storeEmail: { type: ["string", "null"] }
+        logoUrl: { type: ["string", "null"] }
+        footerText: { type: ["string", "null"] }
+        showLogo: { type: boolean }
+        showAddress: { type: boolean }
+        showPhone: { type: boolean }
+        showEmail: { type: boolean }
+        showTaxInfo: { type: boolean }
+        taxNumber: { type: ["string", "null"] }
+
+    ReceiptSettingsUpdate:
+      type: object
+      properties:
+        storeName: { type: string }
+        storeAddress: { type: string }
+        storePhone: { type: string }
+        storeEmail: { type: string }
+        logoUrl: { type: string }
+        footerText: { type: string }
+        showLogo: { type: boolean }
+        showAddress: { type: boolean }
+        showPhone: { type: boolean }
+        showEmail: { type: boolean }
+        showTaxInfo: { type: boolean }
+        taxNumber: { type: string }
+
+    # ── ANALYTICS ────────────────────────────────────────────
+    DashboardStats:
+      type: object
+      required: [totalRevenue, totalExpenses, netProfit, todaySales, totalProducts, lowStockCount, nearExpiryCount, recentSales, topProducts]
+      properties:
+        totalRevenue: { type: number }
+        totalExpenses: { type: number }
+        netProfit: { type: number }
+        todaySales: { type: number }
+        totalProducts: { type: integer }
+        lowStockCount: { type: integer }
+        nearExpiryCount: { type: integer }
+        monthlySalesTrend:
+          type: array
+          items: { $ref: "#/components/schemas/TrendPoint" }
+        recentSales:
+          type: array
+          items: { $ref: "#/components/schemas/Sale" }
+        topProducts:
+          type: array
+          items: { $ref: "#/components/schemas/ProductStat" }
+
+    TrendPoint:
+      type: object
+      required: [label, value]
+      properties:
+        label: { type: string }
+        value: { type: number }
+
+    ProductStat:
+      type: object
+      required: [productId, productName, quantity, revenue]
+      properties:
+        productId: { type: integer }
+        productName: { type: string }
+        quantity: { type: number }
+        revenue: { type: number }
+
+    CashflowReport:
+      type: object
+      required: [periods, totalInflow, totalOutflow, netCashflow]
+      properties:
+        periods:
+          type: array
+          items: { $ref: "#/components/schemas/CashflowPeriod" }
+        totalInflow: { type: number }
+        totalOutflow: { type: number }
+        netCashflow: { type: number }
+
+    CashflowPeriod:
+      type: object
+      required: [label, inflow, outflow, net]
+      properties:
+        label: { type: string }
+        inflow: { type: number }
+        outflow: { type: number }
+        net: { type: number }
+
+    RevenueReport:
+      type: object
+      required: [periods, byProduct, totalRevenue]
+      properties:
+        periods:
+          type: array
+          items: { $ref: "#/components/schemas/TrendPoint" }
+        byProduct:
+          type: array
+          items: { $ref: "#/components/schemas/ProductStat" }
+        totalRevenue: { type: number }
+
+    TopProductsReport:
+      type: object
+      required: [topSelling, topPurchased, slowMoving]
+      properties:
+        topSelling:
+          type: array
+          items: { $ref: "#/components/schemas/ProductStat" }
+        topPurchased:
+          type: array
+          items: { $ref: "#/components/schemas/ProductStat" }
+        slowMoving:
+          type: array
+          items: { $ref: "#/components/schemas/ProductStat" }
+
+    ExpenseReport:
+      type: object
+      required: [periods, byAccount, byVendor, totalExpenses]
+      properties:
+        periods:
+          type: array
+          items: { $ref: "#/components/schemas/TrendPoint" }
+        byAccount:
+          type: array
+          items: { $ref: "#/components/schemas/AccountStat" }
+        byVendor:
+          type: array
+          items: { $ref: "#/components/schemas/VendorStat" }
+        totalExpenses: { type: number }
+
+    AccountStat:
+      type: object
+      required: [accountId, accountName, amount]
+      properties:
+        accountId: { type: integer }
+        accountName: { type: string }
+        amount: { type: number }
+
+    VendorStat:
+      type: object
+      required: [vendorId, vendorName, amount]
+      properties:
+        vendorId: { type: integer }
+        vendorName: { type: string }
+        amount: { type: number }
+
+    ReceivablesPayables:
+      type: object
+      required: [totalReceivables, totalPayables, receivablesByAccount, payablesByAccount]
+      properties:
+        totalReceivables: { type: number }
+        totalPayables: { type: number }
+        receivablesByAccount:
+          type: array
+          items: { $ref: "#/components/schemas/AccountStat" }
+        payablesByAccount:
+          type: array
+          items: { $ref: "#/components/schemas/AccountStat" }
+
+    IncomeStatement:
+      type: object
+      required: [periods, revenue, expenses, grossProfit, netProfit]
+      properties:
+        periods:
+          type: array
+          items: { $ref: "#/components/schemas/IncomePeriod" }
+        revenue: { type: number }
+        expenses: { type: number }
+        grossProfit: { type: number }
+        netProfit: { type: number }
+
+    IncomePeriod:
+      type: object
+      required: [label, revenue, expenses, cogs, profit]
+      properties:
+        label: { type: string }
+        revenue: { type: number }
+        expenses: { type: number }
+        cogs: { type: number }
+        profit: { type: number }
+
+    BalanceSheet:
+      type: object
+      required: [assets, liabilities, equity, totalAssets, totalLiabilities, totalEquity]
+      properties:
+        assets:
+          type: array
+          items: { $ref: "#/components/schemas/AccountStat" }
+        liabilities:
+          type: array
+          items: { $ref: "#/components/schemas/AccountStat" }
+        equity:
+          type: array
+          items: { $ref: "#/components/schemas/AccountStat" }
+        totalAssets: { type: number }
+        totalLiabilities: { type: number }
+        totalEquity: { type: number }
+
+    BestPeriods:
+      type: object
+      required: [bestMonth, bestQuarter, bestYear]
+      properties:
+        bestMonth: { $ref: "#/components/schemas/PeriodResult" }
+        bestQuarter: { $ref: "#/components/schemas/PeriodResult" }
+        bestYear: { $ref: "#/components/schemas/PeriodResult" }
+        topMonths:
+          type: array
+          items: { $ref: "#/components/schemas/TrendPoint" }
+        topQuarters:
+          type: array
+          items: { $ref: "#/components/schemas/TrendPoint" }
+
+    PeriodResult:
+      type: object
+      required: [label, revenue]
+      properties:
+        label: { type: string }
+        revenue: { type: number }
+
+    # ── AI ────────────────────────────────────────────────────
+    AiChatInput:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        history:
+          type: array
+          items: { $ref: "#/components/schemas/AiMessage" }
+
+    AiMessage:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content: { type: string }
+
+    AiAssistantResponse:
+      type: object
+      required: [response]
+      properties:
+        response: { type: string }
