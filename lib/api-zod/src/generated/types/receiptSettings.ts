@@ -27,4 +27,5 @@ export interface ReceiptSettings {
   showTaxInfo?: boolean;
   /** @nullable */
   taxNumber?: string | null;
+  currency?: string;
 }

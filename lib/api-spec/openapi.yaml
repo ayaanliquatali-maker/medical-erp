@@ -783,6 +783,12 @@ paths:
         - name: year
           in: query
           schema: { type: integer }
+        - name: month
+          in: query
+          schema: { type: integer }
+        - name: quarter
+          in: query
+          schema: { type: integer }
       responses:
         "200":
           description: Cashflow data
@@ -885,6 +891,12 @@ paths:
             type: string
             enum: [monthly, quarterly, yearly]
         - name: year
+          in: query
+          schema: { type: integer }
+        - name: month
+          in: query
+          schema: { type: integer }
+        - name: quarter
           in: query
           schema: { type: integer }
       responses:
@@ -1343,6 +1355,7 @@ components:
         showEmail: { type: boolean }
         showTaxInfo: { type: boolean }
         taxNumber: { type: ["string", "null"] }
+        currency: { type: string }
 
     ReceiptSettingsUpdate:
       type: object
@@ -1359,6 +1372,7 @@ components:
         showEmail: { type: boolean }
         showTaxInfo: { type: boolean }
         taxNumber: { type: string }
+        currency: { type: string }
 
     # ── ANALYTICS ────────────────────────────────────────────
     DashboardStats:

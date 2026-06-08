@@ -16,6 +16,7 @@ export const receiptSettingsTable = pgTable("receipt_settings", {
   showEmail: boolean("show_email").notNull().default(false),
   showTaxInfo: boolean("show_tax_info").notNull().default(false),
   taxNumber: text("tax_number"),
+  currency: text("currency").notNull().default("₨"),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

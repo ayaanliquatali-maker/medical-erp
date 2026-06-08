@@ -10,4 +10,6 @@ import type { GetIncomeStatementPeriod } from './getIncomeStatementPeriod';
 export type GetIncomeStatementParams = {
 period?: GetIncomeStatementPeriod;
 year?: number;
+month?: number;
+quarter?: number;
 };

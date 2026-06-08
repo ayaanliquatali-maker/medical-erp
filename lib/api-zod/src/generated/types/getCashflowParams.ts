@@ -10,4 +10,6 @@ import type { GetCashflowPeriod } from './getCashflowPeriod';
 export type GetCashflowParams = {
 period?: GetCashflowPeriod;
 year?: number;
+month?: number;
+quarter?: number;
 };

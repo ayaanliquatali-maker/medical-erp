@@ -997,7 +997,8 @@ export const GetSaleReceiptResponse = zod.object({
   "showPhone": zod.boolean().optional(),
   "showEmail": zod.boolean().optional(),
   "showTaxInfo": zod.boolean().optional(),
-  "taxNumber": zod.string().nullish()
+  "taxNumber": zod.string().nullish(),
+  "currency": zod.string().optional()
 })
 })
 
@@ -1018,7 +1019,8 @@ export const GetReceiptSettingsResponse = zod.object({
   "showPhone": zod.boolean().optional(),
   "showEmail": zod.boolean().optional(),
   "showTaxInfo": zod.boolean().optional(),
-  "taxNumber": zod.string().nullish()
+  "taxNumber": zod.string().nullish(),
+  "currency": zod.string().optional()
 })
 
 
@@ -1037,7 +1039,8 @@ export const UpdateReceiptSettingsBody = zod.object({
   "showPhone": zod.boolean().optional(),
   "showEmail": zod.boolean().optional(),
   "showTaxInfo": zod.boolean().optional(),
-  "taxNumber": zod.string().optional()
+  "taxNumber": zod.string().optional(),
+  "currency": zod.string().optional()
 })
 
 export const UpdateReceiptSettingsResponse = zod.object({
@@ -1053,7 +1056,8 @@ export const UpdateReceiptSettingsResponse = zod.object({
   "showPhone": zod.boolean().optional(),
   "showEmail": zod.boolean().optional(),
   "showTaxInfo": zod.boolean().optional(),
-  "taxNumber": zod.string().nullish()
+  "taxNumber": zod.string().nullish(),
+  "currency": zod.string().optional()
 })
 
 
@@ -1109,7 +1113,9 @@ export const GetDashboardStatsResponse = zod.object({
  */
 export const GetCashflowQueryParams = zod.object({
   "period": zod.enum(['monthly', 'quarterly', 'yearly']).optional(),
-  "year": zod.coerce.number().optional()
+  "year": zod.coerce.number().optional(),
+  "month": zod.coerce.number().optional(),
+  "quarter": zod.coerce.number().optional()
 })
 
 export const GetCashflowResponse = zod.object({
@@ -1230,7 +1236,9 @@ export const GetReceivablesPayablesResponse = zod.object({
  */
 export const GetIncomeStatementQueryParams = zod.object({
   "period": zod.enum(['monthly', 'quarterly', 'yearly']).optional(),
-  "year": zod.coerce.number().optional()
+  "year": zod.coerce.number().optional(),
+  "month": zod.coerce.number().optional(),
+  "quarter": zod.coerce.number().optional()
 })
 
 export const GetIncomeStatementResponse = zod.object({

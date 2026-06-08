@@ -170,7 +170,7 @@ router.get("/analytics/dashboard", async (_req, res): Promise<void> => {
 });
 
 router.get("/analytics/cashflow", async (req, res): Promise<void> => {
-  const { period = "monthly", year } = req.query as Record<string, string>;
+  const { period = "monthly", year, month, quarter } = req.query as Record<string, string>;
   const [allSales, allExpenses, allBatches] = await Promise.all([
     db.select().from(salesTable),
     db.select().from(expensesTable),
@@ -184,6 +184,34 @@ router.get("/analytics/cashflow", async (req, res): Promise<void> => {
     sales = sales.filter(s => s.date.startsWith(year));
     expenses = expenses.filter(e => e.date.startsWith(year));
     batches = batches.filter(b => b.receivedAt.getFullYear().toString() === year);
+  }
+  if (month) {
+    const mm = String(parseInt(month, 10)).padStart(2, "0");
+    if (year) {
+      const prefix = `${year}-${mm}`;
+      sales = sales.filter(s => s.date.startsWith(prefix));
+      expenses = expenses.filter(e => e.date.startsWith(prefix));
+      batches = batches.filter(b => b.receivedAt.toISOString().startsWith(prefix));
+    } else {
+      sales = sales.filter(s => s.date.slice(5, 7) === mm);
+      expenses = expenses.filter(e => e.date.slice(5, 7) === mm);
+      batches = batches.filter(b => String(b.receivedAt.getMonth() + 1).padStart(2, "0") === mm);
+    }
+  }
+  if (quarter) {
+    const q = parseInt(quarter, 10);
+    const startMonth = (q - 1) * 3 + 1;
+    const endMonth = startMonth + 2;
+    const inRange = (dateStr: string) => {
+      const m = parseInt(dateStr.slice(5, 7), 10);
+      return m >= startMonth && m <= endMonth;
+    };
+    sales = sales.filter(s => inRange(s.date));
+    expenses = expenses.filter(e => inRange(e.date));
+    batches = batches.filter(b => {
+      const m = b.receivedAt.getMonth() + 1;
+      return m >= startMonth && m <= endMonth;
+    });
   }
 
   const inflowMap = new Map<string, number>();
@@ -373,12 +401,37 @@ router.get("/analytics/receivables-payables", async (_req, res): Promise<void> =
 });
 
 router.get("/analytics/income-statement", async (req, res): Promise<void> => {
-  const { period = "monthly", year } = req.query as Record<string, string>;
+  const { period = "monthly", year, month, quarter } = req.query as Record<string, string>;
   let sales = await db.select().from(salesTable);
   let expenses = await db.select().from(expensesTable);
   if (year) {
     sales = sales.filter(s => s.date.startsWith(year));
     expenses = expenses.filter(e => e.date.startsWith(year));
+  }
+  if (month) {
+    const m = parseInt(month, 10);
+    const mm = String(m).padStart(2, "0");
+    const prefix = year ? `${year}-${mm}` : `-${mm}-`;
+    if (year) {
+      sales = sales.filter(s => s.date.startsWith(prefix));
+      expenses = expenses.filter(e => e.date.startsWith(prefix));
+    } else {
+      sales = sales.filter(s => s.date.slice(5, 7) === mm);
+      expenses = expenses.filter(e => e.date.slice(5, 7) === mm);
+    }
+  }
+  if (quarter) {
+    const q = parseInt(quarter, 10);
+    const startMonth = (q - 1) * 3 + 1;
+    const endMonth = startMonth + 2;
+    sales = sales.filter(s => {
+      const m = parseInt(s.date.slice(5, 7), 10);
+      return m >= startMonth && m <= endMonth;
+    });
+    expenses = expenses.filter(e => {
+      const m = parseInt(e.date.slice(5, 7), 10);
+      return m >= startMonth && m <= endMonth;
+    });
   }
 
   // Compute COGS from sale lines × average batch cost per product

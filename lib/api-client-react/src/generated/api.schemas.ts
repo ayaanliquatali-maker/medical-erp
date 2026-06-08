@@ -405,6 +405,7 @@ export interface ReceiptSettings {
   showTaxInfo?: boolean;
   /** @nullable */
   taxNumber?: string | null;
+  currency?: string;
 }
 
 export interface Receipt {
@@ -425,6 +426,7 @@ export interface ReceiptSettingsUpdate {
   showEmail?: boolean;
   showTaxInfo?: boolean;
   taxNumber?: string;
+  currency?: string;
 }
 
 export interface TrendPoint {
@@ -618,6 +620,8 @@ search?: string;
 export type GetCashflowParams = {
 period?: GetCashflowPeriod;
 year?: number;
+month?: number;
+quarter?: number;
 };
 
 export type GetCashflowPeriod = typeof GetCashflowPeriod[keyof typeof GetCashflowPeriod];
@@ -675,6 +679,8 @@ export const GetExpenseAnalyticsPeriod = {
 export type GetIncomeStatementParams = {
 period?: GetIncomeStatementPeriod;
 year?: number;
+month?: number;
+quarter?: number;
 };
 
 export type GetIncomeStatementPeriod = typeof GetIncomeStatementPeriod[keyof typeof GetIncomeStatementPeriod];

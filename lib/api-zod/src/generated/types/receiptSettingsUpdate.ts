@@ -19,4 +19,5 @@ export interface ReceiptSettingsUpdate {
   showEmail?: boolean;
   showTaxInfo?: boolean;
   taxNumber?: string;
+  currency?: string;
 }
