@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, BookOpen, Trash2, PlusCircle, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
+import { useCurrency } from "@/hooks/use-currency";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -31,6 +32,7 @@ const getTypeColor = (type: string) => {
 };
 
 export default function Journals() {
+  const { fmt, symbol } = useCurrency();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
@@ -157,8 +159,8 @@ export default function Journals() {
                         <span className="truncate max-w-48">{journal.description}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-medium text-blue-600">₨{(journal.totalDebit || 0).toFixed(2)}</TableCell>
-                    <TableCell className="text-right font-medium text-green-600">₨{(journal.totalCredit || 0).toFixed(2)}</TableCell>
+                    <TableCell className="text-right font-medium text-blue-600 tabular-nums">{fmt(journal.totalDebit || 0)}</TableCell>
+                    <TableCell className="text-right font-medium text-green-600 tabular-nums">{fmt(journal.totalCredit || 0)}</TableCell>
                     <TableCell className="text-right" onClick={e => e.stopPropagation()}>
                       <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setDeleteId(journal.id)}>
                         <Trash2 className="w-4 h-4" />
@@ -177,7 +179,7 @@ export default function Journals() {
                                 <div key={l.id} className="flex items-center gap-2">
                                   <span className="font-medium">{l.accountName}</span>
                                   <span className="text-muted-foreground">DR</span>
-                                  <span className="font-bold text-blue-700">₨{l.debit.toFixed(2)}</span>
+                                  <span className="font-bold text-blue-700 tabular-nums">{fmt(l.debit)}</span>
                                 </div>
                               ))}
                           </div>
@@ -192,7 +194,7 @@ export default function Journals() {
                                 <div key={l.id} className="flex items-center gap-2">
                                   <span className="font-medium">{l.accountName}</span>
                                   <span className="text-muted-foreground">CR</span>
-                                  <span className="font-bold text-green-700">₨{l.credit.toFixed(2)}</span>
+                                  <span className="font-bold text-green-700 tabular-nums">{fmt(l.credit)}</span>
                                 </div>
                               ))}
                           </div>
@@ -239,8 +241,8 @@ export default function Journals() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Account</TableHead>
-                      <TableHead className="w-28">Debit (₨)</TableHead>
-                      <TableHead className="w-28">Credit (₨)</TableHead>
+                      <TableHead className="w-28">Debit ({symbol})</TableHead>
+                      <TableHead className="w-28">Credit ({symbol})</TableHead>
                       <TableHead className="w-8"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -272,8 +274,8 @@ export default function Journals() {
                     ))}
                     <TableRow className="bg-muted/30 font-medium">
                       <TableCell className="p-2 text-sm">Totals</TableCell>
-                      <TableCell className="p-2 text-sm text-blue-600">₨{totalDebit.toFixed(2)}</TableCell>
-                      <TableCell className="p-2 text-sm text-green-600">₨{totalCredit.toFixed(2)}</TableCell>
+                      <TableCell className="p-2 text-sm text-blue-600 tabular-nums">{fmt(totalDebit)}</TableCell>
+                      <TableCell className="p-2 text-sm text-green-600 tabular-nums">{fmt(totalCredit)}</TableCell>
                       <TableCell className="p-2">
                         {totalDebit > 0 && (
                           <span className={`text-xs font-medium ${balanced ? "text-green-600" : "text-destructive"}`}>

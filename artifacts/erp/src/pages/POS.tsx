@@ -15,10 +15,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/hooks/use-currency";
 
 type CartItem = { productId: number; productName: string; unitType: "tablet" | "pack" | "box"; quantity: number; qtyInput: string; unitPrice: number; discount: number };
 
 export default function POS() {
+  const { fmt, symbol } = useCurrency();
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
@@ -129,7 +131,7 @@ export default function POS() {
                     <p className="text-xs text-muted-foreground line-clamp-1 mt-1">{product.genericName}</p>
                   </div>
                   <div className="flex items-end justify-between mt-4">
-                    <div className="text-lg font-bold text-primary">₨{product.sellingPricePerUnit.toFixed(2)}</div>
+                    <div className="text-lg font-bold text-primary tabular-nums">{fmt(product.sellingPricePerUnit)}</div>
                     <Badge variant={product.totalTablets > 0 ? "secondary" : "destructive"}>{product.totalTablets} units</Badge>
                   </div>
                 </CardContent>
@@ -161,7 +163,7 @@ export default function POS() {
                     <div className="flex-1 space-y-2">
                       <div className="flex justify-between items-start">
                         <span className="font-medium text-sm leading-tight">{item.productName}</span>
-                        <span className="font-bold text-sm ml-2">₨{(item.quantity * item.unitPrice).toFixed(2)}</span>
+                        <span className="font-bold text-sm ml-2 tabular-nums">{fmt(item.quantity * item.unitPrice)}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Select value={item.unitType} onValueChange={v => updateUnitType(index, v as any)}>
@@ -180,7 +182,7 @@ export default function POS() {
                           onChange={e => updateQtyInput(index, e.target.value)}
                           onBlur={() => commitQty(index)}
                         />
-                        <span className="text-xs text-muted-foreground">× ₨{item.unitPrice.toFixed(2)}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">× {fmt(item.unitPrice)}</span>
                       </div>
                     </div>
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive self-start shrink-0" onClick={() => removeFromCart(index)}>
@@ -194,9 +196,9 @@ export default function POS() {
         </CardContent>
         <CardFooter className="flex flex-col border-t bg-muted/10 p-4 gap-4">
           <div className="w-full space-y-1.5 text-sm">
-            <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>₨{subtotal.toFixed(2)}</span></div>
+            <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
             <Separator />
-            <div className="flex justify-between text-xl font-bold"><span>Total</span><span className="text-primary">₨{subtotal.toFixed(2)}</span></div>
+            <div className="flex justify-between text-xl font-bold"><span>Total</span><span className="text-primary tabular-nums">{fmt(total)}</span></div>
           </div>
           <Button size="lg" className="w-full h-12 text-base" disabled={cart.length === 0} onClick={() => setCheckoutOpen(true)}>
             Checkout <ChevronRight className="w-5 h-5 ml-1" />
@@ -210,17 +212,17 @@ export default function POS() {
           <div className="space-y-4 py-2">
             <div className="bg-muted/50 rounded-lg p-3 space-y-1 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Items</span><span>{cart.length}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>₨{subtotal.toFixed(2)}</span></div>
-              {globalDiscount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span>-₨{globalDiscount.toFixed(2)}</span></div>}
+              <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span className="tabular-nums">{fmt(subtotal)}</span></div>
+              {globalDiscount > 0 && <div className="flex justify-between text-green-600"><span>Discount</span><span className="tabular-nums">-{fmt(globalDiscount)}</span></div>}
               <Separator />
-              <div className="flex justify-between font-bold text-base"><span>Total</span><span>₨{total.toFixed(2)}</span></div>
+              <div className="flex justify-between font-bold text-base"><span>Total</span><span className="tabular-nums">{fmt(total)}</span></div>
             </div>
             <div className="space-y-1">
               <Label>Customer Name</Label>
               <Input value={checkoutForm.customerName} onChange={e => setCheckoutForm(f => ({ ...f, customerName: e.target.value }))} placeholder="Walk-in customer" />
             </div>
             <div className="space-y-1">
-              <Label>Discount (₨)</Label>
+              <Label>Discount ({symbol})</Label>
               <Input type="number" step="0.01" value={checkoutForm.discount} onChange={e => setCheckoutForm(f => ({ ...f, discount: e.target.value }))} placeholder="0.00" />
             </div>
             <div className="space-y-1">

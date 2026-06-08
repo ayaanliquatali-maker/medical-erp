@@ -124,7 +124,7 @@ function PeriodPicker({
 }
 
 export default function Analytics() {
-  const [period, setPeriod] = useState<"monthly" | "quarterly" | "yearly">("monthly");
+  const [period, setPeriod] = useState<"monthly" | "quarterly" | "yearly">("yearly");
   const [year, setYear] = useState(CURRENT_YEAR);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [quarter, setQuarter] = useState(Math.floor(new Date().getMonth() / 3) + 1);

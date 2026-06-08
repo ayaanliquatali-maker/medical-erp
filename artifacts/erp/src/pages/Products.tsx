@@ -15,6 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Search, Edit, Trash, AlertCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/hooks/use-currency";
 
 type ProductForm = {
   name: string;
@@ -28,6 +29,7 @@ const emptyForm: ProductForm = {
 };
 
 export default function Products() {
+  const { fmt } = useCurrency();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -136,7 +138,7 @@ export default function Products() {
                 <TableCell>{product.category || "-"}</TableCell>
                 <TableCell className="text-right">
                   {(product.sellingPricePerUnit ?? 0) > 0
-                    ? `₨${(product.sellingPricePerUnit ?? 0).toFixed(2)}`
+                    ? <span className="tabular-nums">{fmt(product.sellingPricePerUnit ?? 0)}</span>
                     : <span className="text-muted-foreground text-xs">Set via Inventory</span>
                   }
                 </TableCell>

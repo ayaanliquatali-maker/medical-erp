@@ -13,11 +13,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Landmark } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCurrency } from "@/hooks/use-currency";
 import { useToast } from "@/hooks/use-toast";
 
 const ACCOUNT_TYPES = ["asset", "liability", "equity", "revenue", "expense"] as const;
 
 export default function Accounts() {
+  const { fmt } = useCurrency();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ name: "", type: "" as typeof ACCOUNT_TYPES[number] | "", code: "", parentId: "", description: "" });
 
@@ -105,7 +107,7 @@ export default function Accounts() {
                 <TableCell>
                   <Badge variant={acc.isActive ? "secondary" : "outline"}>{acc.isActive ? "Active" : "Inactive"}</Badge>
                 </TableCell>
-                <TableCell className="text-right font-medium">₨{(acc.balance || 0).toFixed(2)}</TableCell>
+                <TableCell className="text-right font-medium tabular-nums">{fmt(acc.balance || 0)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

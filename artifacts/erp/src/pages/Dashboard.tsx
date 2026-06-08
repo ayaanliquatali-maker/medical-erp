@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, IndianRupee, PackageOpen, TrendingUp, AlertTriangle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { useCurrency } from "@/hooks/use-currency";
 
 export default function Dashboard() {
   const { data: stats, isLoading } = useGetDashboardStats({ query: { queryKey: getGetDashboardStatsQueryKey() } });
+  const { fmt, symbol } = useCurrency();
 
   if (isLoading || !stats) {
     return (
@@ -35,7 +37,7 @@ export default function Dashboard() {
             <TrendingUp className="w-4 h-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.todaySales.toFixed(2)}</div>
+            <div className="text-2xl font-bold tabular-nums">{fmt(stats.todaySales)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -44,7 +46,7 @@ export default function Dashboard() {
             <IndianRupee className="w-4 h-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</div>
+            <div className="text-2xl font-bold tabular-nums">{fmt(stats.totalRevenue)}</div>
           </CardContent>
         </Card>
         <Card>
@@ -53,7 +55,7 @@ export default function Dashboard() {
             <TrendingUp className="w-4 h-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">${stats.netProfit.toFixed(2)}</div>
+            <div className="text-2xl font-bold text-green-600 tabular-nums">{fmt(stats.netProfit)}</div>
           </CardContent>
         </Card>
         <Card className="border-destructive/20 bg-destructive/5">
@@ -83,7 +85,7 @@ export default function Dashboard() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.monthlySalesTrend}>
                     <XAxis dataKey="label" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `$${value}`} />
+                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => fmt(value, 0)} />
                     <Tooltip cursor={{ stroke: 'hsl(var(--primary))', strokeWidth: 1, strokeDasharray: '5 5' }} />
                     <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
                   </LineChart>
@@ -114,8 +116,8 @@ export default function Dashboard() {
                       <p className="text-xs text-muted-foreground">{p.quantity} units sold</p>
                     </div>
                   </div>
-                  <div className="font-medium text-sm">
-                    ${p.revenue.toFixed(2)}
+                  <div className="font-medium text-sm tabular-nums">
+                    {fmt(p.revenue)}
                   </div>
                 </div>
               ))}

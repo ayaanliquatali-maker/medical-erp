@@ -14,9 +14,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Plus, Boxes, Layers, Pill, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/hooks/use-currency";
 import { format, isBefore, addDays } from "date-fns";
 
 export default function Inventory() {
+  const { fmt } = useCurrency();
   const [view, setView] = useState<"tablets" | "packs" | "boxes">("tablets");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -136,7 +138,7 @@ export default function Inventory() {
                   <TableCell className="font-medium">{batch.productName}</TableCell>
                   <TableCell>{batch.batchNumber || "-"}</TableCell>
                   <TableCell>{remaining} / {total} {view}</TableCell>
-                  <TableCell className="text-right">₨{batch.costPerUnit.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmt(batch.costPerUnit)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       {format(new Date(batch.expiryDate), "MMM d, yyyy")}

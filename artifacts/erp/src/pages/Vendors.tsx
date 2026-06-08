@@ -13,11 +13,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Search, Edit, Trash } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useCurrency } from "@/hooks/use-currency";
 
 type VendorForm = { name: string; contactName: string; phone: string; email: string; address: string; notes: string };
 const empty: VendorForm = { name: "", contactName: "", phone: "", email: "", address: "", notes: "" };
 
 export default function Vendors() {
+  const { fmt } = useCurrency();
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
@@ -108,7 +110,7 @@ export default function Vendors() {
                   <div className="text-sm">{vendor.email || "-"}</div>
                   <div className="text-xs text-muted-foreground">{vendor.phone || "-"}</div>
                 </TableCell>
-                <TableCell className="text-right">₨{(vendor.totalPurchases || 0).toFixed(2)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(vendor.totalPurchases || 0)}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openEdit(vendor)}><Edit className="w-4 h-4" /></Button>
                   <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(vendor.id)}><Trash className="w-4 h-4" /></Button>

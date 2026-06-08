@@ -16,10 +16,12 @@ import { Plus, Trash } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useCurrency } from "@/hooks/use-currency";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function Expenses() {
+  const { fmt } = useCurrency();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [form, setForm] = useState({ date: today(), amount: "", description: "", expenseAccountId: "", paymentAccountId: "", vendorId: "", reference: "" });
@@ -108,7 +110,7 @@ export default function Expenses() {
                 <TableCell>{expense.expenseAccountName}</TableCell>
                 <TableCell>{expense.paymentAccountName}</TableCell>
                 <TableCell>{expense.vendorName || "-"}</TableCell>
-                <TableCell className="text-right font-medium text-destructive">₨{expense.amount.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-medium text-destructive tabular-nums">{fmt(expense.amount)}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(expense.id)}><Trash className="w-4 h-4" /></Button>
                 </TableCell>

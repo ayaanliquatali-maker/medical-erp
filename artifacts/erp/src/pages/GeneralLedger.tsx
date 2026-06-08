@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { format } from "date-fns";
+import { useCurrency } from "@/hooks/use-currency";
 
 const typeColor: Record<string, string> = {
   asset: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
@@ -19,6 +20,7 @@ const typeColor: Record<string, string> = {
 };
 
 function AccountLedger({ accountId, onBack }: { accountId: number; onBack: () => void }) {
+  const { fmt } = useCurrency();
   const { data, isLoading } = useGetAccountBalance(accountId, {
     query: { queryKey: getGetAccountBalanceQueryKey(accountId) },
   });
@@ -49,16 +51,16 @@ function AccountLedger({ accountId, onBack }: { accountId: number; onBack: () =>
       <div className="grid grid-cols-3 gap-4">
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-100 dark:border-blue-800">
           <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-1">Total Debits</p>
-          <p className="text-2xl font-bold text-blue-700">₨{(data.debits || 0).toFixed(2)}</p>
+          <p className="text-2xl font-bold text-blue-700 tabular-nums">{fmt(data.debits || 0)}</p>
         </div>
         <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-100 dark:border-green-800">
           <p className="text-xs font-semibold uppercase tracking-wider text-green-600 mb-1">Total Credits</p>
-          <p className="text-2xl font-bold text-green-700">₨{(data.credits || 0).toFixed(2)}</p>
+          <p className="text-2xl font-bold text-green-700 tabular-nums">{fmt(data.credits || 0)}</p>
         </div>
         <div className="bg-card rounded-lg p-4 border">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Net Balance</p>
-          <p className={`text-2xl font-bold ${data.balance > 0 ? "text-primary" : data.balance < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-            ₨{(data.balance || 0).toFixed(2)}
+          <p className={`text-2xl font-bold tabular-nums ${data.balance > 0 ? "text-primary" : data.balance < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            {fmt(data.balance || 0)}
           </p>
         </div>
       </div>
@@ -91,17 +93,17 @@ function AccountLedger({ accountId, onBack }: { accountId: number; onBack: () =>
                 <TableCell className="font-mono text-xs text-muted-foreground">{tx.reference || "-"}</TableCell>
                 <TableCell className="text-right">
                   {tx.debit > 0 ? (
-                    <span className="font-medium text-blue-600">₨{tx.debit.toFixed(2)}</span>
+                    <span className="font-medium text-blue-600 tabular-nums">{fmt(tx.debit)}</span>
                   ) : <span className="text-muted-foreground">-</span>}
                 </TableCell>
                 <TableCell className="text-right">
                   {tx.credit > 0 ? (
-                    <span className="font-medium text-green-600">₨{tx.credit.toFixed(2)}</span>
+                    <span className="font-medium text-green-600 tabular-nums">{fmt(tx.credit)}</span>
                   ) : <span className="text-muted-foreground">-</span>}
                 </TableCell>
                 <TableCell className="text-right font-semibold">
-                  <span className={tx.balance > 0 ? "text-primary" : tx.balance < 0 ? "text-destructive" : ""}>
-                    ₨{tx.balance.toFixed(2)}
+                  <span className={`tabular-nums ${tx.balance > 0 ? "text-primary" : tx.balance < 0 ? "text-destructive" : ""}`}>
+                    {fmt(tx.balance)}
                   </span>
                 </TableCell>
               </TableRow>
@@ -114,6 +116,7 @@ function AccountLedger({ accountId, onBack }: { accountId: number; onBack: () =>
 }
 
 export default function GeneralLedger() {
+  const { fmt } = useCurrency();
   const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const { data: accounts, isLoading } = useListAccounts({}, { query: { queryKey: getListAccountsQueryKey({}) } });
 
@@ -181,15 +184,15 @@ export default function GeneralLedger() {
                               {acc.name}
                               {acc.isSystem && <Badge variant="outline" className="text-[10px] ml-2">System</Badge>}
                             </TableCell>
-                            <TableCell className="text-right text-blue-600 font-medium">
-                              ₨{(balance > 0 ? balance : 0).toFixed(2)}
+                            <TableCell className="text-right text-blue-600 font-medium tabular-nums">
+                              {fmt(balance > 0 ? balance : 0)}
                             </TableCell>
-                            <TableCell className="text-right text-green-600 font-medium">
-                              ₨{(balance < 0 ? Math.abs(balance) : 0).toFixed(2)}
+                            <TableCell className="text-right text-green-600 font-medium tabular-nums">
+                              {fmt(balance < 0 ? Math.abs(balance) : 0)}
                             </TableCell>
                             <TableCell className="text-right font-bold">
-                              <span className={balance > 0 ? "text-primary" : balance < 0 ? "text-destructive" : "text-muted-foreground"}>
-                                ₨{Math.abs(balance).toFixed(2)}
+                              <span className={`tabular-nums ${balance > 0 ? "text-primary" : balance < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                                {fmt(Math.abs(balance))}
                                 {balance > 0 ? <TrendingUp className="inline w-3 h-3 ml-1" /> : balance < 0 ? <TrendingDown className="inline w-3 h-3 ml-1" /> : <Minus className="inline w-3 h-3 ml-1" />}
                               </span>
                             </TableCell>

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Receipt, Printer, Upload, ImageIcon } from "lucide-react";
 import { format } from "date-fns";
+import { useCurrency } from "@/hooks/use-currency";
 
 function InlineInput({ value, onChange, placeholder, className = "" }: {
   value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
@@ -23,6 +24,7 @@ function InlineInput({ value, onChange, placeholder, className = "" }: {
 
 function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void }) {
   const { data: receipt, isLoading } = useGetSaleReceipt(saleId, { query: { queryKey: getGetSaleReceiptQueryKey(saleId) } });
+  const { fmt, symbol } = useCurrency();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [edits, setEdits] = useState<{
@@ -52,8 +54,8 @@ function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void
       `<tr>
         <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb">${l.productName}</td>
         <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:center">${l.quantity} ${l.unitType}</td>
-        <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right">₨${l.unitPrice.toFixed(2)}</td>
-        <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right">₨${l.total.toFixed(2)}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right">${symbol}${l.unitPrice.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+        <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right">${symbol}${l.total.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
       </tr>`
     ).join("");
 
@@ -124,9 +126,9 @@ function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void
       <tbody>${lines}</tbody>
     </table>
     <div class="totals">
-      <div class="totals-row"><span>Subtotal</span><span>₨${sale.subtotal.toFixed(2)}</span></div>
-      ${sale.discount > 0 ? `<div class="totals-row" style="color:#16a34a"><span>Discount</span><span>-₨${sale.discount.toFixed(2)}</span></div>` : ""}
-      <div class="totals-grand"><span>TOTAL</span><span>₨${sale.total.toFixed(2)}</span></div>
+      <div class="totals-row"><span>Subtotal</span><span>${symbol}${sale.subtotal.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
+      ${sale.discount > 0 ? `<div class="totals-row" style="color:#16a34a"><span>Discount</span><span>-${symbol}${sale.discount.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>` : ""}
+      <div class="totals-grand"><span>TOTAL</span><span>${symbol}${sale.total.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</span></div>
     </div>
     <div class="footer">${settings.footerText || "Thank you for your business!"}</div>
   </div>
@@ -264,8 +266,8 @@ function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void
                   <tr key={line.id} className={i % 2 === 1 ? "bg-muted/20" : ""}>
                     <td className="px-4 py-3 font-medium">{line.productName}</td>
                     <td className="px-4 py-3 text-right text-muted-foreground">{line.quantity} {line.unitType}</td>
-                    <td className="px-4 py-3 text-right">₨{line.unitPrice.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-right font-semibold">₨{line.total.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right tabular-nums">{fmt(line.unitPrice)}</td>
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums">{fmt(line.total)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -277,17 +279,17 @@ function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void
             <div className="w-72 space-y-2">
               <div className="flex justify-between text-sm text-muted-foreground border-b pb-2">
                 <span>Subtotal</span>
-                <span>₨{sale.subtotal.toFixed(2)}</span>
+                <span className="tabular-nums">{fmt(sale.subtotal)}</span>
               </div>
               {sale.discount > 0 && (
                 <div className="flex justify-between text-sm text-green-600 border-b pb-2">
                   <span>Discount</span>
-                  <span>-₨{sale.discount.toFixed(2)}</span>
+                  <span className="tabular-nums">-{fmt(sale.discount)}</span>
                 </div>
               )}
               <div className="flex justify-between items-center bg-primary text-white px-4 py-3 rounded-lg font-bold text-lg">
                 <span>TOTAL</span>
-                <span>₨{sale.total.toFixed(2)}</span>
+                <span className="tabular-nums">{fmt(sale.total)}</span>
               </div>
             </div>
           </div>
@@ -305,6 +307,7 @@ function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void
 }
 
 export default function Sales() {
+  const { fmt } = useCurrency();
   const [search, setSearch] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const { data: sales, isLoading } = useListSales({ search }, { query: { queryKey: getListSalesQueryKey({ search }) } });
@@ -358,9 +361,9 @@ export default function Sales() {
                 </TableCell>
                 <TableCell>{sale.customerName || "Walk-in"}</TableCell>
                 <TableCell>{sale.paymentAccountName}</TableCell>
-                <TableCell className="text-right">₨{sale.subtotal.toFixed(2)}</TableCell>
-                <TableCell className="text-right">₨{sale.discount.toFixed(2)}</TableCell>
-                <TableCell className="text-right font-bold text-primary">₨{sale.total.toFixed(2)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(sale.subtotal)}</TableCell>
+                <TableCell className="text-right tabular-nums">{fmt(sale.discount)}</TableCell>
+                <TableCell className="text-right font-bold text-primary tabular-nums">{fmt(sale.total)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
