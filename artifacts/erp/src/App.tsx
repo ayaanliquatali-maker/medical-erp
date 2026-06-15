@@ -5,6 +5,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AdminProvider } from "@/context/admin";
+import { setBaseUrl } from "@workspace/api-client-react";
+
+if (import.meta.env.VITE_API_URL) {
+  setBaseUrl(import.meta.env.VITE_API_URL);
+}
 
 import Dashboard from "@/pages/Dashboard";
 import InventoryPage from "@/pages/Products";
