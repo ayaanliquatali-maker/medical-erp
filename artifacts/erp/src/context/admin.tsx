@@ -10,6 +10,12 @@ type AdminContextValue = {
 
 const AdminContext = createContext<AdminContextValue | undefined>(undefined);
 
+function getAdminUrl(path: string): string {
+  const base = import.meta.env.VITE_API_URL;
+  if (!base) return `/api/admin${path}`;
+  return `${base.replace(/\/+$/, "")}/api/admin${path}`;
+}
+
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [checking, setChecking] = useState(true);
@@ -19,7 +25,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     const fetchStatus = async () => {
       try {
-        const response = await fetch("/api/admin/status", { credentials: "include" });
+        const response = await fetch(getAdminUrl("/status"), { credentials: "include" });
         if (!active) return;
         if (!response.ok) {
           setIsAdmin(false);
@@ -40,7 +46,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = async (password: string) => {
-    const response = await fetch("/api/admin/login", {
+    const response = await fetch(getAdminUrl("/login"), {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -60,7 +66,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
-      const response = await fetch("/api/admin/logout", {
+      const response = await fetch(getAdminUrl("/logout"), {
         method: "POST",
         credentials: "include",
       });
