@@ -667,7 +667,7 @@ function InventoryValueWidget({ params, fmt }: { params: Record<string, any>; fm
   const yearStr = String(params.year ?? CURRENT_YEAR);
 
   const filtered = useMemo(() => {
-    let list = inventory ?? [];
+    let list = Array.isArray(inventory) ? inventory : [];
     if (params.day && params.month) {
       const dd = String(params.day).padStart(2, "0");
       const mm = String(params.month).padStart(2, "0");
@@ -791,7 +791,7 @@ function ExpenseWidget({ settings, fmt }: { settings: Record<string, any>; fmt: 
   const year = settings.year ?? CURRENT_YEAR;
   const { data, isLoading } = useGetExpenseAnalytics({ period, year }, { query: { queryKey: getGetExpenseAnalyticsQueryKey({ period, year }) } });
   if (isLoading || !data) return <Skeleton className="h-52 w-full" />;
-  const items = (data.byAccount ?? []).filter(a => a.amount > 0);
+  const items = (Array.isArray(data.byAccount) ? data.byAccount : []).filter(a => a.amount > 0);
   if (items.length === 0) return <div className="text-sm text-muted-foreground text-center py-8">No expenses for this period</div>;
   return (
     <div className="h-52">
@@ -812,6 +812,7 @@ function InventoryDrillDown({ inventory, fmt, year, month, quarter }: { inventor
   const [open, setOpen] = useState(false);
 
   const products = useMemo(() => {
+    if (!Array.isArray(inventory)) return [];
     const map = new Map<string, { productName: string; totalUnits: number; totalCost: number; totalSell: number }>();
     for (const b of inventory) {
       const r = b.receivedAt ?? "";

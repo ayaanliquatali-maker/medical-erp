@@ -219,7 +219,7 @@ export default function Analytics() {
   }, [period, year, lastMonth, quarter, day]);
 
   const filteredInventory = useMemo(() => {
-    let list = inventory ?? [];
+    let list = Array.isArray(inventory) ? inventory : [];
     const yearStr = String(year);
     list = list.filter(b => (b.receivedAt ?? "").startsWith(yearStr));
     if (period === "monthly" && months.length > 0) {
