@@ -3,6 +3,7 @@ import {
   useListInventory, useReceiveInventory, useListProducts, useListVendors, useListAccounts, useDeleteInventoryBatch,
   getListInventoryQueryKey, getListProductsQueryKey, getListVendorsQueryKey, getListAccountsQueryKey,
 } from "@workspace/api-client-react";
+import { useAdmin } from "@/context/admin";
 import { useQueryClient } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/use-currency";
 import { format, isBefore, addDays } from "date-fns";
+import { parseDate } from "@/lib/utils";
+
+const today = () => new Date().toISOString().slice(0, 10);
 
 export default function Inventory() {
   const { fmt } = useCurrency();
@@ -24,8 +28,8 @@ export default function Inventory() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [batchToDelete, setBatchToDelete] = useState<number | null>(null);
   const [form, setForm] = useState({
-    productId: "", unitType: "tablet" as "tablet" | "syrup", batchNumber: "", boxesPurchased: "", packsPerBox: "10",
-    tabsPerPack: "10", costPerUnit: "", sellingPricePerUnit: "", sellingPricePerPack: "", sellingPricePerBox: "", expiryDate: "", vendorId: "", paymentAccountId: "", notes: "",
+    productId: "", unitType: "", batchNumber: "", boxesPurchased: "", packsPerBox: "10",
+    tabsPerPack: "10", costPerUnit: "", sellingPricePerUnit: "", sellingPricePerPack: "", sellingPricePerBox: "", expiryDate: "", receivedAt: today(), vendorId: "", paymentAccountId: "", notes: "",
   });
 
   const { data: inventory, isLoading } = useListInventory({ view }, { query: { queryKey: getListInventoryQueryKey({ view }) } });
@@ -36,13 +40,41 @@ export default function Inventory() {
   const deleteBatch = useDeleteInventoryBatch();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isAdmin } = useAdmin();
 
   const cashAccounts = accounts?.filter(a => a.type === "asset" || a.type === "liability") ?? [];
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
 
+  const handlePackPrice = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setForm(f => {
+      const tabs = Number(f.tabsPerPack) || 1;
+      const packPrice = Number(val) || 0;
+      return {
+        ...f,
+        sellingPricePerPack: val,
+        sellingPricePerUnit: packPrice > 0 && tabs > 0 ? String(packPrice / tabs) : f.sellingPricePerUnit,
+      };
+    });
+  };
+
+  const handleBoxPrice = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setForm(f => {
+      const tabs = Number(f.tabsPerPack) || 1;
+      const packs = Number(f.packsPerBox) || 1;
+      const boxPrice = Number(val) || 0;
+      return {
+        ...f,
+        sellingPricePerBox: val,
+        sellingPricePerUnit: boxPrice > 0 && tabs > 0 && packs > 0 ? String(boxPrice / (tabs * packs)) : f.sellingPricePerUnit,
+      };
+    });
+  };
+
   const handleReceive = () => {
-    if (!form.productId || !form.boxesPurchased || !form.costPerUnit || !form.sellingPricePerUnit || !form.expiryDate) {
+    if (!form.productId || !form.boxesPurchased || !form.costPerUnit || !form.sellingPricePerUnit || !form.expiryDate || !form.paymentAccountId) {
       toast({ title: "Please fill required fields", variant: "destructive" }); return;
     }
     receiveInventory.mutate({
@@ -58,26 +90,27 @@ export default function Inventory() {
         sellingPricePerPack: form.sellingPricePerPack ? Number(form.sellingPricePerPack) : undefined,
         sellingPricePerBox: form.sellingPricePerBox ? Number(form.sellingPricePerBox) : undefined,
         expiryDate: new Date(form.expiryDate) as any,
+        receivedAt: new Date(form.receivedAt) as any,
         vendorId: form.vendorId ? Number(form.vendorId) : undefined,
-        paymentAccountId: form.paymentAccountId ? Number(form.paymentAccountId) : undefined,
+        paymentAccountId: Number(form.paymentAccountId),
         notes: form.notes || undefined,
       }
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListInventoryQueryKey({}) });
         setDialogOpen(false);
-        setForm({ productId: "", unitType: "tablet", batchNumber: "", boxesPurchased: "", packsPerBox: "10", tabsPerPack: "10", costPerUnit: "", sellingPricePerUnit: "", sellingPricePerPack: "", sellingPricePerBox: "", expiryDate: "", vendorId: "", paymentAccountId: "", notes: "" });
+        setForm({ productId: "", unitType: "", batchNumber: "", boxesPurchased: "", packsPerBox: "10", tabsPerPack: "10", costPerUnit: "", sellingPricePerUnit: "", sellingPricePerPack: "", sellingPricePerBox: "", expiryDate: "", receivedAt: today(), vendorId: "", paymentAccountId: "", notes: "" });
         toast({ title: "Inventory received successfully" });
       },
       onError: (err: any) => {
-        const msg = err?.response?.data?.error ?? "Failed to receive inventory";
+        const msg = err?.data?.error ?? err?.message ?? "Failed to receive inventory";
         toast({ title: msg, variant: "destructive" });
       },
     });
   };
 
   const getExpiryStatus = (expiryDateStr: string) => {
-    const expiryDate = new Date(expiryDateStr);
+    const expiryDate = parseDate(expiryDateStr);
     const now = new Date();
     if (isBefore(expiryDate, now)) return { label: "Expired", variant: "destructive" as const };
     if (isBefore(expiryDate, addDays(now, 90))) return { label: "Near Expiry", variant: "secondary" as const };
@@ -88,8 +121,8 @@ export default function Inventory() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inventory</h1>
-          <p className="text-muted-foreground mt-1">Manage stock batches and expiry dates.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Inventory</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage stock batches and expiry dates.</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />Receive Inventory</Button>
       </div>
@@ -125,14 +158,14 @@ export default function Inventory() {
               <TableRow key={i}>
                 {[...Array(6)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}
               </TableRow>
-            )) : inventory?.length === 0 ? (
+            )) : (inventory ?? []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No inventory batches. Click "Receive Inventory" to add stock.</TableCell>
               </TableRow>
-            ) : inventory?.map(batch => {
+            ) : (inventory ?? []).map(batch => {
               const status = getExpiryStatus(batch.expiryDate);
               const remaining = view === "tablets" ? batch.remainingTablets : view === "packs" ? batch.remainingPacks : batch.remainingBoxes;
-              const total = view === "tablets" ? batch.totalTablets : view === "packs" ? Math.floor(batch.totalTablets / batch.tabsPerPack) : batch.boxesPurchased;
+              const total = view === "tablets" ? batch.totalTablets : view === "packs" ? Math.floor(batch.totalTablets / Math.max(1, batch.tabsPerPack)) : batch.boxesPurchased;
               return (
                 <TableRow key={batch.id}>
                   <TableCell className="font-medium">{batch.productName}</TableCell>
@@ -141,15 +174,17 @@ export default function Inventory() {
                   <TableCell className="text-right tabular-nums">{fmt(batch.costPerUnit)}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      {format(new Date(batch.expiryDate), "MMM d, yyyy")}
+                      {format(parseDate(batch.expiryDate), "MMM d, yyyy")}
                       <Badge variant={status.variant}>{status.label}</Badge>
                     </div>
                   </TableCell>
                   <TableCell>{batch.vendorName || "-"}</TableCell>
                   <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700" onClick={() => { setBatchToDelete(batch.id); setDeleteDialogOpen(true); }}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    {isAdmin ? (
+                      <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700" onClick={() => { setBatchToDelete(batch.id); setDeleteDialogOpen(true); }}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               );
@@ -169,20 +204,14 @@ export default function Inventory() {
               <Select value={form.productId} onValueChange={v => setForm(f => ({ ...f, productId: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                 <SelectContent>
-                  {products?.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                  {(products ?? []).map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
                 <Label>Unit Type *</Label>
-                <Select value={form.unitType} onValueChange={v => setForm(f => ({ ...f, unitType: v as any }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tablet">Tablet</SelectItem>
-                    <SelectItem value="syrup">Syrup</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input value={form.unitType} onChange={set("unitType")} placeholder="e.g. tablet, sachet, jar, bottle" />
               </div>
               <div className="space-y-1">
                 <Label>Batch Number</Label>
@@ -193,6 +222,10 @@ export default function Inventory() {
                 <Input type="date" value={form.expiryDate} onChange={set("expiryDate")} />
               </div>
               <div className="space-y-1">
+                <Label>Received Date *</Label>
+                <Input type="date" value={form.receivedAt} onChange={set("receivedAt")} />
+              </div>
+              <div className="space-y-1">
                 <Label>Boxes Purchased *</Label>
                 <Input type="number" value={form.boxesPurchased} onChange={set("boxesPurchased")} placeholder="0" />
               </div>
@@ -201,24 +234,24 @@ export default function Inventory() {
                 <Input type="number" value={form.packsPerBox} onChange={set("packsPerBox")} />
               </div>
               <div className="space-y-1">
-                <Label>Tablets per Pack</Label>
+                <Label>Total {form.unitType || "Unit"}</Label>
                 <Input type="number" value={form.tabsPerPack} onChange={set("tabsPerPack")} />
               </div>
               <div className="space-y-1">
-                <Label>Cost per Tablet *</Label>
+                <Label>Cost per {form.unitType || "Unit"} *</Label>
                 <Input type="number" step="0.01" value={form.costPerUnit} onChange={set("costPerUnit")} placeholder="0.00" />
               </div>
               <div className="space-y-1">
-                <Label>Selling Price / Tablet *</Label>
+                <Label>Selling Price / {form.unitType || "Unit"} *</Label>
                 <Input type="number" step="0.01" value={form.sellingPricePerUnit} onChange={set("sellingPricePerUnit")} placeholder="0.00" />
               </div>
               <div className="space-y-1">
                 <Label>Selling Price / Pack</Label>
-                <Input type="number" step="0.01" value={form.sellingPricePerPack} onChange={set("sellingPricePerPack")} placeholder="0.00" />
+                <Input type="number" step="0.01" value={form.sellingPricePerPack} onChange={handlePackPrice} placeholder="0.00" />
               </div>
               <div className="space-y-1">
                 <Label>Selling Price / Box</Label>
-                <Input type="number" step="0.01" value={form.sellingPricePerBox} onChange={set("sellingPricePerBox")} placeholder="0.00" />
+                <Input type="number" step="0.01" value={form.sellingPricePerBox} onChange={handleBoxPrice} placeholder="0.00" />
               </div>
             </div>
             <div className="space-y-1">
@@ -227,16 +260,15 @@ export default function Inventory() {
                 <SelectTrigger><SelectValue placeholder="Select vendor (optional)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {vendors?.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}
+                  {(vendors ?? []).map(v => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Payment Account</Label>
+              <Label>Payment Account *</Label>
               <Select value={form.paymentAccountId} onValueChange={v => setForm(f => ({ ...f, paymentAccountId: v }))}>
-                <SelectTrigger><SelectValue placeholder="Select payment account (optional)" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select payment account" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
                   {cashAccounts.map(a => <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -273,7 +305,7 @@ export default function Inventory() {
                     toast({ title: "Inventory batch deleted" });
                   },
                   onError: (err: any) => {
-                    const msg = err?.response?.data?.error ?? "Failed to delete batch";
+                    const msg = err?.data?.error ?? err?.message ?? "Failed to delete batch";
                     toast({ title: msg, variant: "destructive" });
                   },
                 });

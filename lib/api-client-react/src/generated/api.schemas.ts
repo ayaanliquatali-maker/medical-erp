@@ -9,14 +9,6 @@ export interface HealthStatus {
   status: string;
 }
 
-export type ProductUnitType = typeof ProductUnitType[keyof typeof ProductUnitType];
-
-
-export const ProductUnitType = {
-  tablet: 'tablet',
-  syrup: 'syrup',
-} as const;
-
 export interface Product {
   id: number;
   name: string;
@@ -24,7 +16,7 @@ export interface Product {
   genericName?: string | null;
   /** @nullable */
   category?: string | null;
-  unitType?: ProductUnitType;
+  unitType?: string;
   tabsPerPack?: number;
   packsPerBox?: number;
   sellingPricePerUnit: number;
@@ -55,21 +47,13 @@ export interface ProductUpdate {
   isActive?: boolean;
 }
 
-export type InventoryBatchUnitType = typeof InventoryBatchUnitType[keyof typeof InventoryBatchUnitType];
-
-
-export const InventoryBatchUnitType = {
-  tablet: 'tablet',
-  syrup: 'syrup',
-} as const;
-
 export interface InventoryBatch {
   id: number;
   productId: number;
   productName: string;
   /** @nullable */
   batchNumber?: string | null;
-  unitType: InventoryBatchUnitType;
+  unitType: string;
   boxesPurchased: number;
   packsPerBox: number;
   tabsPerPack: number;
@@ -91,18 +75,10 @@ export interface InventoryBatch {
   journalEntryId?: number | null;
 }
 
-export type InventoryReceiptInputUnitType = typeof InventoryReceiptInputUnitType[keyof typeof InventoryReceiptInputUnitType];
-
-
-export const InventoryReceiptInputUnitType = {
-  tablet: 'tablet',
-  syrup: 'syrup',
-} as const;
-
 export interface InventoryReceiptInput {
   productId: number;
   batchNumber?: string;
-  unitType: InventoryReceiptInputUnitType;
+  unitType: string;
   boxesPurchased: number;
   packsPerBox: number;
   tabsPerPack: number;
@@ -112,7 +88,8 @@ export interface InventoryReceiptInput {
   sellingPricePerBox?: number;
   expiryDate: string;
   vendorId?: number;
-  paymentAccountId?: number;
+  paymentAccountId: number;
+  receivedAt?: string;
   notes?: string;
 }
 
@@ -322,20 +299,11 @@ export interface ExpenseInput {
   reference?: string;
 }
 
-export type SaleLineUnitType = typeof SaleLineUnitType[keyof typeof SaleLineUnitType];
-
-
-export const SaleLineUnitType = {
-  tablet: 'tablet',
-  pack: 'pack',
-  box: 'box',
-} as const;
-
 export interface SaleLine {
   id: number;
   productId: number;
   productName: string;
-  unitType: SaleLineUnitType;
+  unitType: string;
   quantity: number;
   unitPrice: number;
   discount?: number;
@@ -359,18 +327,9 @@ export interface Sale {
   createdAt: string;
 }
 
-export type SaleLineInputUnitType = typeof SaleLineInputUnitType[keyof typeof SaleLineInputUnitType];
-
-
-export const SaleLineInputUnitType = {
-  tablet: 'tablet',
-  pack: 'pack',
-  box: 'box',
-} as const;
-
 export interface SaleLineInput {
   productId: number;
-  unitType: SaleLineInputUnitType;
+  unitType: string;
   quantity: number;
   unitPrice: number;
   discount?: number;
@@ -529,6 +488,8 @@ export interface BalanceSheet {
   totalAssets: number;
   totalLiabilities: number;
   totalEquity: number;
+  totalLiabilitiesEquity: number;
+  difference: number;
 }
 
 export interface PeriodResult {

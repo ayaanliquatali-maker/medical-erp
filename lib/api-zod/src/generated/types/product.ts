@@ -5,7 +5,6 @@
  * MediERP - Medical Store ERP API
  * OpenAPI spec version: 0.1.0
  */
-import type { ProductUnitType } from './productUnitType';
 
 export interface Product {
   id: number;
@@ -14,7 +13,7 @@ export interface Product {
   genericName?: string | null;
   /** @nullable */
   category?: string | null;
-  unitType?: ProductUnitType;
+  unitType?: string;
   tabsPerPack?: number;
   packsPerBox?: number;
   sellingPricePerUnit: number;

@@ -976,7 +976,6 @@ components:
         category: { type: ["string", "null"] }
         unitType:
           type: string
-          enum: [tablet, syrup]
         tabsPerPack: { type: integer }
         packsPerBox: { type: integer }
         sellingPricePerUnit: { type: number }
@@ -1019,7 +1018,6 @@ components:
         batchNumber: { type: ["string", "null"] }
         unitType:
           type: string
-          enum: [tablet, syrup]
         boxesPurchased: { type: integer }
         packsPerBox: { type: integer }
         tabsPerPack: { type: integer }
@@ -1039,13 +1037,12 @@ components:
 
     InventoryReceiptInput:
       type: object
-      required: [productId, unitType, boxesPurchased, packsPerBox, tabsPerPack, costPerUnit, sellingPricePerUnit, expiryDate]
+      required: [productId, unitType, boxesPurchased, packsPerBox, tabsPerPack, costPerUnit, sellingPricePerUnit, expiryDate, paymentAccountId]
       properties:
         productId: { type: integer }
         batchNumber: { type: string }
         unitType:
           type: string
-          enum: [tablet, syrup]
         boxesPurchased: { type: integer }
         packsPerBox: { type: integer }
         tabsPerPack: { type: integer }
@@ -1056,6 +1053,7 @@ components:
         expiryDate: { type: string, format: date }
         vendorId: { type: integer }
         paymentAccountId: { type: integer }
+        receivedAt: { type: string, format: date }
         notes: { type: string }
 
     InventoryBatchUpdate:
@@ -1300,7 +1298,6 @@ components:
         productName: { type: string }
         unitType:
           type: string
-          enum: [tablet, pack, box]
         quantity: { type: number }
         unitPrice: { type: number }
         discount: { type: number }
@@ -1325,7 +1322,6 @@ components:
         productId: { type: integer }
         unitType:
           type: string
-          enum: [tablet, pack, box]
         quantity: { type: number }
         unitPrice: { type: number }
         discount: { type: number }
@@ -1526,7 +1522,7 @@ components:
 
     BalanceSheet:
       type: object
-      required: [assets, liabilities, equity, totalAssets, totalLiabilities, totalEquity]
+      required: [assets, liabilities, equity, totalAssets, totalLiabilities, totalEquity, totalLiabilitiesEquity, difference]
       properties:
         assets:
           type: array
@@ -1540,6 +1536,8 @@ components:
         totalAssets: { type: number }
         totalLiabilities: { type: number }
         totalEquity: { type: number }
+        totalLiabilitiesEquity: { type: number }
+        difference: { type: number }
 
     BestPeriods:
       type: object

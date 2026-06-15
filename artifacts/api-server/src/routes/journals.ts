@@ -2,7 +2,9 @@ import { Router } from "express";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { serializeForZod } from "../lib/serialize";
-import { journalEntriesTable, journalLinesTable, accountsTable } from "@workspace/db";
+import { journalEntriesTable, journalLinesTable, accountsTable, salesTable, expensesTable, inventoryBatchesTable } from "@workspace/db";
+import { requireAdmin } from "../lib/admin";
+import { logAudit } from "../lib/audit";
 import {
   ListJournalsResponse,
   CreateJournalBody,
@@ -92,6 +94,13 @@ router.post("/journals", async (req, res): Promise<void> => {
     }))
   );
 
+  await logAudit("journal.create", "journal_entry", entry.id, {
+    description: entryData.description,
+    totalDebit,
+    totalCredit,
+    lineCount: lines.length,
+  });
+
   const enriched = await getJournalWithLines(entry.id);
   res.status(201).json(GetJournalResponse.parse(serializeForZod(enriched)));
 });
@@ -105,14 +114,31 @@ router.get("/journals/:id", async (req, res): Promise<void> => {
   res.json(GetJournalResponse.parse(serializeForZod(entry)));
 });
 
-router.delete("/journals/:id", async (req, res): Promise<void> => {
+router.delete("/journals/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const entry = await getJournalWithLines(id);
   if (!entry) { res.status(404).json({ error: "Journal entry not found" }); return; }
 
+  // Cascade: delete associated business record based on journal type
+  if (entry.type === "sale") {
+    await db.delete(salesTable).where(eq(salesTable.journalEntryId, id));
+  } else if (entry.type === "expense") {
+    await db.delete(expensesTable).where(eq(expensesTable.journalEntryId, id));
+  } else if (entry.type === "purchase") {
+    const batch = await db.query.inventoryBatchesTable.findFirst({ where: eq(inventoryBatchesTable.journalEntryId, id) });
+    if (batch) {
+      await db.update(inventoryBatchesTable).set({ journalEntryId: null }).where(eq(inventoryBatchesTable.id, batch.id));
+      await db.delete(inventoryBatchesTable).where(eq(inventoryBatchesTable.id, batch.id));
+    }
+  }
+
   await db.delete(journalEntriesTable).where(eq(journalEntriesTable.id, id));
+  await logAudit("journal.delete", "journal_entry", id, {
+    action: "delete journal entry",
+    type: entry.type,
+  }, "admin");
   res.json(DeleteJournalResponse.parse(serializeForZod(entry)));
 });
 

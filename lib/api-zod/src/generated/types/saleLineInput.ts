@@ -5,11 +5,10 @@
  * MediERP - Medical Store ERP API
  * OpenAPI spec version: 0.1.0
  */
-import type { SaleLineInputUnitType } from './saleLineInputUnitType';
 
 export interface SaleLineInput {
   productId: number;
-  unitType: SaleLineInputUnitType;
+  unitType: string;
   quantity: number;
   unitPrice: number;
   discount?: number;

@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "cd artifacts/erp && pnpm run build",
+  "outputDirectory": "artifacts/erp/dist/public",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "devCommand": "cd artifacts/erp && pnpm run dev",
+  "rewrites": [
+    { "source": "/((?!api/).*)", "destination": "/" }
+  ]
+}

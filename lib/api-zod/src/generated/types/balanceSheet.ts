@@ -14,4 +14,6 @@ export interface BalanceSheet {
   totalAssets: number;
   totalLiabilities: number;
   totalEquity: number;
+  totalLiabilitiesEquity: number;
+  difference: number;
 }

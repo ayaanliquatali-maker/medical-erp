@@ -5,6 +5,7 @@ import {
   getListExpensesQueryKey, getListAccountsQueryKey, getListVendorsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAdmin } from "@/context/admin";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useCurrency } from "@/hooks/use-currency";
+import { parseDate } from "@/lib/utils";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -33,6 +35,7 @@ export default function Expenses() {
   const deleteExpense = useDeleteExpense();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isAdmin } = useAdmin();
 
   const expenseAccounts = accounts?.filter(a => a.type === "expense") ?? [];
   const paymentAccounts = accounts?.filter(a => a.type === "asset" && (a.code === "1000" || a.code === "1100")) ?? [];
@@ -77,8 +80,8 @@ export default function Expenses() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Expenses</h1>
-          <p className="text-muted-foreground mt-1">Record and track operational expenses.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Expenses</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Record and track operational expenses.</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />Record Expense</Button>
       </div>
@@ -99,20 +102,22 @@ export default function Expenses() {
           <TableBody>
             {isLoading ? [...Array(5)].map((_, i) => (
               <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : expenses?.length === 0 ? (
+            )) : (expenses ?? []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No expenses recorded yet.</TableCell>
               </TableRow>
-            ) : expenses?.map(expense => (
-              <TableRow key={expense.id}>
-                <TableCell className="font-medium">{format(new Date(expense.date), "MMM d, yyyy")}</TableCell>
+            ) : (expenses ?? []).map(expense => (
+              <TableRow key={expense.id}> 
+                <TableCell className="font-medium">{format(parseDate(expense.date), "MMM d, yyyy")}</TableCell>
                 <TableCell>{expense.description}</TableCell>
                 <TableCell>{expense.expenseAccountName}</TableCell>
                 <TableCell>{expense.paymentAccountName}</TableCell>
                 <TableCell>{expense.vendorName || "-"}</TableCell>
                 <TableCell className="text-right font-medium text-destructive tabular-nums">{fmt(expense.amount)}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(expense.id)}><Trash className="w-4 h-4" /></Button>
+                  {isAdmin ? (
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(expense.id)}><Trash className="w-4 h-4" /></Button>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))}

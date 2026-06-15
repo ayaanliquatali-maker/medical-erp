@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Search, Receipt, Printer, Upload, ImageIcon } from "lucide-react";
 import { format } from "date-fns";
 import { useCurrency } from "@/hooks/use-currency";
+import { parseDate } from "@/lib/utils";
 
 function InlineInput({ value, onChange, placeholder, className = "" }: {
   value: string; onChange: (v: string) => void; placeholder?: string; className?: string;
@@ -107,7 +108,7 @@ function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void
         <div class="inv-label">INVOICE</div>
         <table>
           <tr><td class="label">Invoice #</td><td class="value">${sale.saleNumber}</td></tr>
-          <tr><td class="label">Date</td><td class="value">${format(new Date(sale.date), "dd MMM yyyy")}</td></tr>
+          <tr><td class="label">Date</td><td class="value">${format(parseDate(sale.date), "dd MMM yyyy")}</td></tr>
         </table>
       </div>
     </div>
@@ -229,11 +230,7 @@ function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void
                 </div>
                 <div className="flex items-center justify-end gap-3">
                   <span className="text-muted-foreground">Date</span>
-                  <span className="font-medium">{format(new Date(sale.date), "dd MMM yyyy")}</span>
-                </div>
-                <div className="flex items-center justify-end gap-3">
-                  <span className="text-muted-foreground">Time</span>
-                  <span className="font-medium">{format(new Date(sale.date), "h:mm a")}</span>
+                  <span className="font-medium">{format(parseDate(sale.date), "dd MMM yyyy")}</span>
                 </div>
               </div>
             </div>
@@ -316,8 +313,8 @@ export default function Sales() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales History</h1>
-          <p className="text-muted-foreground mt-1">Click any row to view and print the invoice.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Sales History</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Click any row to view and print the invoice.</p>
         </div>
       </div>
 
@@ -342,17 +339,17 @@ export default function Sales() {
           <TableBody>
             {isLoading ? [...Array(5)].map((_, i) => (
               <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : sales?.length === 0 ? (
+            )) : (sales ?? []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No sales yet. Make a sale from Point of Sale.</TableCell>
               </TableRow>
-            ) : sales?.map(sale => (
+            ) : (sales ?? []).map(sale => (
               <TableRow
                 key={sale.id}
                 className="cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={() => setSelectedSaleId(sale.id)}
               >
-                <TableCell>{format(new Date(sale.date), "MMM d, yyyy h:mm a")}</TableCell>
+                <TableCell>{format(parseDate(sale.date), "MMM d, yyyy")}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2 font-mono text-sm">
                     <Receipt className="w-4 h-4 text-muted-foreground" />

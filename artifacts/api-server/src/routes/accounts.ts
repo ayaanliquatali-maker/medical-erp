@@ -3,6 +3,8 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { serializeForZod } from "../lib/serialize";
 import { accountsTable, journalLinesTable, journalEntriesTable } from "@workspace/db";
+import { requireAdmin } from "../lib/admin";
+import { logAudit } from "../lib/audit";
 import {
   ListAccountsResponse,
   CreateAccountBody,
@@ -102,7 +104,7 @@ router.patch("/accounts/:id", async (req, res): Promise<void> => {
   res.json(UpdateAccountResponse.parse(serializeForZod({ ...enriched, children: [] })));
 });
 
-router.delete("/accounts/:id", async (req, res): Promise<void> => {
+router.delete("/accounts/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -118,6 +120,7 @@ router.delete("/accounts/:id", async (req, res): Promise<void> => {
   }
 
   const [deleted] = await db.delete(accountsTable).where(eq(accountsTable.id, id)).returning();
+  await logAudit("account.delete", "account", id, { action: "delete account" }, "admin");
   const enriched = await enrichAccount(deleted);
   res.json(DeleteAccountResponse.parse(serializeForZod({ ...enriched, children: [] })));
 });

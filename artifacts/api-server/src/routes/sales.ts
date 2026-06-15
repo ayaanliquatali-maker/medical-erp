@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { eq, asc } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { logAudit } from "../lib/audit";
 import { serializeForZod } from "../lib/serialize";
 import {
   salesTable,
@@ -126,9 +127,23 @@ router.post("/sales", async (req, res): Promise<void> => {
     const packsPerBox = activeBatch ? activeBatch.packsPerBox : 1;
 
     let tabletsNeeded = 0;
-    if (line.unitType === "tablet") tabletsNeeded = line.quantity;
-    else if (line.unitType === "pack") tabletsNeeded = line.quantity * tabsPerPack;
+    if (line.unitType === "pack") tabletsNeeded = line.quantity * tabsPerPack;
     else if (line.unitType === "box") tabletsNeeded = line.quantity * tabsPerPack * packsPerBox;
+    else tabletsNeeded = line.quantity;
+
+    // Check sufficient stock
+    const totalAvailable = (await db
+      .select()
+      .from(inventoryBatchesTable)
+      .where(eq(inventoryBatchesTable.productId, line.productId)))
+      .reduce((sum, b) => sum + b.remainingTablets, 0);
+
+    if (tabletsNeeded > totalAvailable) {
+      res.status(400).json({
+        error: `Insufficient stock for "${product.name}". Need ${tabletsNeeded} tablets, but only ${totalAvailable} available.`,
+      });
+      return;
+    }
 
     const lineDiscount = line.discount ?? 0;
     const lineTotal = line.quantity * line.unitPrice - lineDiscount;
@@ -213,6 +228,12 @@ router.post("/sales", async (req, res): Promise<void> => {
       total: l.total.toString(),
     }))
   );
+
+  await logAudit("sale.create", "sale", sale.id, {
+    saleNumber: sale.saleNumber,
+    total,
+    lineCount: lineValues.length,
+  });
 
   const enriched = await getSaleEnriched(sale.id);
   res.status(201).json(GetSaleResponse.parse(serializeForZod(enriched)));

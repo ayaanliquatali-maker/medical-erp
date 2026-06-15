@@ -8,6 +8,7 @@ import {
   expensesTable,
   productsTable,
   accountsTable,
+  journalEntriesTable,
   journalLinesTable,
   inventoryBatchesTable,
 } from "@workspace/db";
@@ -25,17 +26,56 @@ import {
 
 const router = Router();
 
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+function sortPeriodLabels(labels: string[]): string[] {
+  return labels.sort((a, b) => {
+    // Monthly: "Mon YYYY"
+    const mA = a.match(/^(\w{3})\s+(\d{4})$/);
+    const mB = b.match(/^(\w{3})\s+(\d{4})$/);
+    if (mA && mB) {
+      const ka = mA[2] + String(MONTH_NAMES.indexOf(mA[1])).padStart(2, "0");
+      const kb = mB[2] + String(MONTH_NAMES.indexOf(mB[1])).padStart(2, "0");
+      return ka.localeCompare(kb);
+    }
+    // Quarterly: "QN YYYY"
+    const qA = a.match(/^Q(\d)\s+(\d{4})$/);
+    const qB = b.match(/^Q(\d)\s+(\d{4})$/);
+    if (qA && qB) {
+      const ka = qA[2] + qA[1].padStart(2, "0");
+      const kb = qB[2] + qB[1].padStart(2, "0");
+      return ka.localeCompare(kb);
+    }
+    // Yearly
+    const yA = parseInt(a, 10);
+    const yB = parseInt(b, 10);
+    if (!isNaN(yA) && !isNaN(yB)) return yA - yB;
+    // Daily: "D Mon YYYY"
+    const dA = a.match(/^(\d{1,2})\s+(\w{3})\s+(\d{4})$/);
+    const dB = b.match(/^(\d{1,2})\s+(\w{3})\s+(\d{4})$/);
+    if (dA && dB) {
+      const ka = dA[3] + String(MONTH_NAMES.indexOf(dA[2])).padStart(2, "0") + dA[1].padStart(2, "0");
+      const kb = dB[3] + String(MONTH_NAMES.indexOf(dB[2])).padStart(2, "0") + dB[1].padStart(2, "0");
+      return ka.localeCompare(kb);
+    }
+    return a.localeCompare(b);
+  });
+}
+
 function getPeriodLabel(date: string, period: string): string {
-  const d = new Date(date);
-  const month = d.getMonth();
-  const year = d.getFullYear();
-  if (period === "yearly") return year.toString();
-  if (period === "quarterly") {
-    const q = Math.floor(month / 3) + 1;
-    return `Q${q} ${year}`;
+  const parts = date.split("-").map(Number);
+  const y = parts[0];
+  const m = parts[1] - 1; // 0-indexed month
+  const dayNum = parts[2];
+  if (period === "daily") {
+    return `${dayNum} ${MONTH_NAMES[m]} ${y}`;
   }
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[month]} ${year}`;
+  if (period === "yearly") return y.toString();
+  if (period === "quarterly") {
+    const q = Math.floor(m / 3) + 1;
+    return `Q${q} ${y}`;
+  }
+  return `${MONTH_NAMES[m]} ${y}`;
 }
 
 function groupByPeriod(items: { date: string; amount: number }[], period: string): { label: string; value: number }[] {
@@ -58,22 +98,84 @@ async function getAccountBalance(accountId: number): Promise<number> {
   return parseFloat(rows[0]?.debit || "0") - parseFloat(rows[0]?.credit || "0");
 }
 
+// ── GL-based financial helpers ──
+
+/** All journal lines with account codes and entry dates */
+async function getJournalLinesWithAccounts() {
+  return db
+    .select({
+      date: journalEntriesTable.date,
+      code: accountsTable.code,
+      debit: sql<string>`${journalLinesTable.debit}`,
+      credit: sql<string>`${journalLinesTable.credit}`,
+    })
+    .from(journalLinesTable)
+    .innerJoin(journalEntriesTable, eq(journalLinesTable.journalEntryId, journalEntriesTable.id))
+    .innerJoin(accountsTable, eq(journalLinesTable.accountId, accountsTable.id));
+}
+
+function codeStarts(code: string, prefix: string) {
+  return code != null && code.startsWith(prefix);
+}
+
+type GLRow = { date: string; code: string; debit: string; credit: string };
+
+function revenueFromGL(rows: GLRow[]) {
+  return rows
+    .filter(r => codeStarts(r.code, "4"))
+    .reduce((s, r) => s + parseFloat(r.credit || "0") - parseFloat(r.debit || "0"), 0);
+}
+
+function cogsFromGL(rows: GLRow[]) {
+  return rows
+    .filter(r => r.code === "5000")
+    .reduce((s, r) => s + parseFloat(r.debit || "0") - parseFloat(r.credit || "0"), 0);
+}
+
+function expensesFromGL(rows: GLRow[]) {
+  return rows
+    .filter(r => codeStarts(r.code, "5") && r.code !== "5000")
+    .reduce((s, r) => s + parseFloat(r.debit || "0") - parseFloat(r.credit || "0"), 0);
+}
+
+function cashInflowFromGL(rows: GLRow[]) {
+  // Debits to cash/bank accounts = money coming in
+  return rows
+    .filter(r => (r.code === "1000" || r.code === "1100"))
+    .reduce((s, r) => s + parseFloat(r.debit || "0") - parseFloat(r.credit || "0"), 0);
+}
+
+async function getGLFinancials(filter?: (r: GLRow) => boolean) {
+  const allRows = await getJournalLinesWithAccounts();
+  const rows = filter ? allRows.filter(filter) : allRows;
+  return {
+    revenue: revenueFromGL(rows),
+    cogs: cogsFromGL(rows),
+    expenses: expensesFromGL(rows),
+    grossProfit: revenueFromGL(rows) - cogsFromGL(rows),
+    netProfit: revenueFromGL(rows) - cogsFromGL(rows) - expensesFromGL(rows),
+  };
+}
+
 router.get("/analytics/dashboard", async (_req, res): Promise<void> => {
   const today = new Date().toISOString().slice(0, 10);
   const thisYear = new Date().getFullYear().toString();
 
-  const [allSales, todaySalesRows, allExpenses, allProducts, allBatches] = await Promise.all([
+  // Financials from GL
+  const allRows = await getJournalLinesWithAccounts();
+  const todayRows = allRows.filter(r => r.date === today);
+  const totalRevenue = revenueFromGL(allRows);
+  const totalOpex = expensesFromGL(allRows);
+  const totalCOGS = cogsFromGL(allRows);
+  const netProfit = totalRevenue - totalCOGS - totalOpex;
+  const todaySales = revenueFromGL(todayRows);
+
+  // Product / inventory / sales stats still from business tables
+  const [allSales, allProducts, allBatches] = await Promise.all([
     db.select().from(salesTable),
-    db.select().from(salesTable).where(eq(salesTable.date, today)),
-    db.select().from(expensesTable),
     db.select().from(productsTable).where(eq(productsTable.isActive, true)),
     db.select().from(inventoryBatchesTable),
   ]);
-
-  const totalRevenue = allSales.reduce((s, r) => s + parseFloat(r.total as string), 0);
-  const totalExpenses = allExpenses.reduce((s, r) => s + parseFloat(r.amount as string), 0);
-  const netProfit = totalRevenue - totalExpenses;
-  const todaySales = todaySalesRows.reduce((s, r) => s + parseFloat(r.total as string), 0);
 
   const in30Days = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
   let lowStockCount = 0;
@@ -157,7 +259,7 @@ router.get("/analytics/dashboard", async (_req, res): Promise<void> => {
 
   res.json(GetDashboardStatsResponse.parse(serializeForZod({
     totalRevenue,
-    totalExpenses,
+    totalExpenses: totalOpex,
     netProfit,
     todaySales,
     totalProducts: allProducts.length,
@@ -170,70 +272,50 @@ router.get("/analytics/dashboard", async (_req, res): Promise<void> => {
 });
 
 router.get("/analytics/cashflow", async (req, res): Promise<void> => {
-  const { period = "monthly", year, month, quarter } = req.query as Record<string, string>;
-  const [allSales, allExpenses, allBatches] = await Promise.all([
-    db.select().from(salesTable),
-    db.select().from(expensesTable),
-    db.select().from(inventoryBatchesTable),
-  ]);
+  const { period = "monthly", year, month, quarter, day } = req.query as Record<string, string>;
 
-  let sales = allSales;
-  let expenses = allExpenses;
-  let batches = allBatches;
-  if (year) {
-    sales = sales.filter(s => s.date.startsWith(year));
-    expenses = expenses.filter(e => e.date.startsWith(year));
-    batches = batches.filter(b => b.receivedAt.getFullYear().toString() === year);
-  }
-  if (month) {
-    const mm = String(parseInt(month, 10)).padStart(2, "0");
-    if (year) {
-      const prefix = `${year}-${mm}`;
-      sales = sales.filter(s => s.date.startsWith(prefix));
-      expenses = expenses.filter(e => e.date.startsWith(prefix));
-      batches = batches.filter(b => b.receivedAt.toISOString().startsWith(prefix));
-    } else {
-      sales = sales.filter(s => s.date.slice(5, 7) === mm);
-      expenses = expenses.filter(e => e.date.slice(5, 7) === mm);
-      batches = batches.filter(b => String(b.receivedAt.getMonth() + 1).padStart(2, "0") === mm);
+  const allRows = await getJournalLinesWithAccounts();
+
+  // Filter by date range
+  const dateFilter = (r: GLRow) => {
+    if (year && !r.date.startsWith(year)) return false;
+    if (month) {
+      const mm = String(parseInt(month, 10)).padStart(2, "0");
+      if (!r.date.slice(5, 7).startsWith(mm)) return false;
     }
-  }
-  if (quarter) {
-    const q = parseInt(quarter, 10);
-    const startMonth = (q - 1) * 3 + 1;
-    const endMonth = startMonth + 2;
-    const inRange = (dateStr: string) => {
-      const m = parseInt(dateStr.slice(5, 7), 10);
-      return m >= startMonth && m <= endMonth;
-    };
-    sales = sales.filter(s => inRange(s.date));
-    expenses = expenses.filter(e => inRange(e.date));
-    batches = batches.filter(b => {
-      const m = b.receivedAt.getMonth() + 1;
-      return m >= startMonth && m <= endMonth;
-    });
-  }
+    if (day) {
+      const dd = String(parseInt(day, 10)).padStart(2, "0");
+      if (!r.date.slice(8, 10).startsWith(dd)) return false;
+    }
+    if (quarter) {
+      const q = parseInt(quarter, 10);
+      const m = parseInt(r.date.slice(5, 7), 10);
+      const startMonth = (q - 1) * 3 + 1;
+      const endMonth = startMonth + 2;
+      if (m < startMonth || m > endMonth) return false;
+    }
+    return true;
+  };
+  const filteredRows = allRows.filter(dateFilter);
 
+  // Inflow: debits to cash/bank accounts (1000, 1100) from sales/revenue
+  // Outflow: credits to cash/bank accounts from expenses/purchases
   const inflowMap = new Map<string, number>();
   const outflowMap = new Map<string, number>();
 
-  for (const s of sales) {
-    const label = getPeriodLabel(s.date, period);
-    inflowMap.set(label, (inflowMap.get(label) ?? 0) + parseFloat(s.total as string));
-  }
-  for (const e of expenses) {
-    const label = getPeriodLabel(e.date, period);
-    outflowMap.set(label, (outflowMap.get(label) ?? 0) + parseFloat(e.amount as string));
-  }
-  // Include inventory purchases as cash outflow
-  for (const b of batches) {
-    const dateStr = b.receivedAt.toISOString().slice(0, 10);
-    const cost = b.totalTablets * parseFloat(b.costPerUnit as string);
-    const label = getPeriodLabel(dateStr, period);
-    outflowMap.set(label, (outflowMap.get(label) ?? 0) + cost);
+  for (const r of filteredRows) {
+    if (r.code !== "1000" && r.code !== "1100") continue;
+    const label = getPeriodLabel(r.date, period);
+    const debit = parseFloat(r.debit || "0");
+    const credit = parseFloat(r.credit || "0");
+    if (debit > credit) {
+      inflowMap.set(label, (inflowMap.get(label) ?? 0) + debit - credit);
+    } else {
+      outflowMap.set(label, (outflowMap.get(label) ?? 0) + credit - debit);
+    }
   }
 
-  const allLabels = [...new Set([...inflowMap.keys(), ...outflowMap.keys()])].sort();
+  const allLabels = sortPeriodLabels([...new Set([...inflowMap.keys(), ...outflowMap.keys()])]);
   const periods = allLabels.map(label => ({
     label,
     inflow: inflowMap.get(label) ?? 0,
@@ -241,24 +323,27 @@ router.get("/analytics/cashflow", async (req, res): Promise<void> => {
     net: (inflowMap.get(label) ?? 0) - (outflowMap.get(label) ?? 0),
   }));
 
-  const totalInflow = sales.reduce((s, r) => s + parseFloat(r.total as string), 0);
-  const totalExpenseOutflow = expenses.reduce((s, r) => s + parseFloat(r.amount as string), 0);
-  const totalInventoryOutflow = batches.reduce((s, b) => s + b.totalTablets * parseFloat(b.costPerUnit as string), 0);
-  const totalOutflow = totalExpenseOutflow + totalInventoryOutflow;
+  const totalInflow = filteredRows
+    .filter(r => r.code === "1000" || r.code === "1100")
+    .reduce((s, r) => s + Math.max(0, parseFloat(r.debit || "0") - parseFloat(r.credit || "0")), 0);
+  const totalOutflow = filteredRows
+    .filter(r => r.code === "1000" || r.code === "1100")
+    .reduce((s, r) => s + Math.max(0, parseFloat(r.credit || "0") - parseFloat(r.debit || "0")), 0);
 
   res.json(GetCashflowResponse.parse(serializeForZod({ periods, totalInflow, totalOutflow, netCashflow: totalInflow - totalOutflow })));
 });
 
 router.get("/analytics/revenue", async (req, res): Promise<void> => {
   const { period = "monthly", year } = req.query as Record<string, string>;
-  let sales = await db.select().from(salesTable);
-  if (year) sales = sales.filter(s => s.date.startsWith(year));
+  const allRows = await getJournalLinesWithAccounts();
+  const revenueRows = allRows.filter(r => codeStarts(r.code, "4") && (!year || r.date.startsWith(year)));
 
   const periods = groupByPeriod(
-    sales.map(s => ({ date: s.date, amount: parseFloat(s.total as string) })),
+    revenueRows.map(r => ({ date: r.date, amount: parseFloat(r.credit || "0") - parseFloat(r.debit || "0") })),
     period
   );
 
+  // Product detail still from sale_lines
   const allLines = await db
     .select({
       productId: saleLinesTable.productId,
@@ -282,7 +367,7 @@ router.get("/analytics/revenue", async (req, res): Promise<void> => {
     productMap.set(pid, existing);
   }
   const byProduct = Array.from(productMap.values()).sort((a, b) => b.revenue - a.revenue);
-  const totalRevenue = sales.reduce((s, r) => s + parseFloat(r.total as string), 0);
+  const totalRevenue = revenueFromGL(revenueRows);
 
   res.json(GetRevenueAnalyticsResponse.parse(serializeForZod({ periods, byProduct, totalRevenue })));
 });
@@ -342,15 +427,17 @@ router.get("/analytics/top-products", async (req, res): Promise<void> => {
 
 router.get("/analytics/expenses", async (req, res): Promise<void> => {
   const { period = "monthly", year } = req.query as Record<string, string>;
-  let expenses = await db.select().from(expensesTable);
-  if (year) expenses = expenses.filter(e => e.date.startsWith(year));
+  const allRows = await getJournalLinesWithAccounts();
+  const expenseRows = allRows.filter(r => codeStarts(r.code, "5") && r.code !== "5000" && (!year || r.date.startsWith(year)));
 
   const periods = groupByPeriod(
-    expenses.map(e => ({ date: e.date, amount: parseFloat(e.amount as string) })),
+    expenseRows.map(r => ({ date: r.date, amount: parseFloat(r.debit || "0") - parseFloat(r.credit || "0") })),
     period
   );
 
-  // By account
+  // By account — from expense table (still needed for vendor/account detail)
+  let expenses = await db.select().from(expensesTable);
+  if (year) expenses = expenses.filter(e => e.date.startsWith(year));
   const accountMap = new Map<number, { accountId: number; accountName: string; amount: number }>();
   for (const e of expenses) {
     const acc = await db.query.accountsTable.findFirst({ where: eq(accountsTable.id, e.expenseAccountId) });
@@ -369,7 +456,7 @@ router.get("/analytics/expenses", async (req, res): Promise<void> => {
     vendorMap.set(e.vendorId, existing);
   }
 
-  const totalExpenses = expenses.reduce((s, e) => s + parseFloat(e.amount as string), 0);
+  const totalExpenses = expensesFromGL(expenseRows);
 
   res.json(GetExpenseAnalyticsResponse.parse(serializeForZod({
     periods,
@@ -401,114 +488,65 @@ router.get("/analytics/receivables-payables", async (_req, res): Promise<void> =
 });
 
 router.get("/analytics/income-statement", async (req, res): Promise<void> => {
-  const { period = "monthly", year, month, quarter } = req.query as Record<string, string>;
-  let sales = await db.select().from(salesTable);
-  let expenses = await db.select().from(expensesTable);
-  if (year) {
-    sales = sales.filter(s => s.date.startsWith(year));
-    expenses = expenses.filter(e => e.date.startsWith(year));
-  }
-  if (month) {
-    const m = parseInt(month, 10);
-    const mm = String(m).padStart(2, "0");
-    const prefix = year ? `${year}-${mm}` : `-${mm}-`;
-    if (year) {
-      sales = sales.filter(s => s.date.startsWith(prefix));
-      expenses = expenses.filter(e => e.date.startsWith(prefix));
-    } else {
-      sales = sales.filter(s => s.date.slice(5, 7) === mm);
-      expenses = expenses.filter(e => e.date.slice(5, 7) === mm);
+  const { period = "monthly", year, month, quarter, day } = req.query as Record<string, string>;
+
+  const allRows = await getJournalLinesWithAccounts();
+
+  // Filter by date range
+  const dateFilter = (r: GLRow) => {
+    if (year && !r.date.startsWith(year)) return false;
+    if (month) {
+      const mm = String(parseInt(month, 10)).padStart(2, "0");
+      if (!r.date.slice(5, 7).startsWith(mm)) return false;
     }
-  }
-  if (quarter) {
-    const q = parseInt(quarter, 10);
-    const startMonth = (q - 1) * 3 + 1;
-    const endMonth = startMonth + 2;
-    sales = sales.filter(s => {
-      const m = parseInt(s.date.slice(5, 7), 10);
-      return m >= startMonth && m <= endMonth;
-    });
-    expenses = expenses.filter(e => {
-      const m = parseInt(e.date.slice(5, 7), 10);
-      return m >= startMonth && m <= endMonth;
-    });
-  }
-
-  // Compute COGS from sale lines × average batch cost per product
-  const allSaleLines = await db
-    .select({
-      saleId: saleLinesTable.saleId,
-      productId: saleLinesTable.productId,
-      quantity: saleLinesTable.quantity,
-      unitType: saleLinesTable.unitType,
-    })
-    .from(saleLinesTable)
-    .innerJoin(productsTable, eq(saleLinesTable.productId, productsTable.id));
-
-  const allInventory = await db
-    .select({
-      productId: inventoryBatchesTable.productId,
-      costPerUnit: inventoryBatchesTable.costPerUnit,
-      totalTablets: inventoryBatchesTable.totalTablets,
-      tabsPerPack: inventoryBatchesTable.tabsPerPack,
-      packsPerBox: inventoryBatchesTable.packsPerBox,
-    })
-    .from(inventoryBatchesTable);
-
-  // Compute average cost per unit per product
-  const costMap = new Map<number, number>();
-  const productCostTotal = new Map<number, { costTotal: number; tabletTotal: number }>();
-  for (const inv of allInventory) {
-    const cost = parseFloat(inv.costPerUnit as string);
-    const existing = productCostTotal.get(inv.productId) ?? { costTotal: 0, tabletTotal: 0 };
-    existing.costTotal += cost * inv.totalTablets;
-    existing.tabletTotal += inv.totalTablets;
-    productCostTotal.set(inv.productId, existing);
-  }
-  for (const [pid, { costTotal, tabletTotal }] of productCostTotal) {
-    costMap.set(pid, tabletTotal > 0 ? costTotal / tabletTotal : 0);
-  }
-
-  const saleIdSet = new Set(sales.map(s => s.id));
-  const filteredLines = allSaleLines.filter(l => saleIdSet.has(l.saleId));
-
-  let totalCOGS = 0;
-  for (const line of filteredLines) {
-    const qty = parseFloat(line.quantity as string);
-    const cost = costMap.get(line.productId) ?? 0;
-    const productBatches = allInventory.filter(i => i.productId === line.productId);
-    const activeBatch = productBatches[0];
-    const tabsPerPack = activeBatch ? activeBatch.totalTablets / activeBatch.packsPerBox : 1;
-    const packsPerBox = activeBatch ? activeBatch.packsPerBox : 1;
-    let tablets = qty;
-    if (line.unitType === "pack") tablets = qty * tabsPerPack;
-    else if (line.unitType === "box") tablets = qty * tabsPerPack * packsPerBox;
-    totalCOGS += tablets * cost;
-  }
+    if (day) {
+      const dd = String(parseInt(day, 10)).padStart(2, "0");
+      if (!r.date.slice(8, 10).startsWith(dd)) return false;
+    }
+    if (quarter) {
+      const q = parseInt(quarter, 10);
+      const m = parseInt(r.date.slice(5, 7), 10);
+      const startMonth = (q - 1) * 3 + 1;
+      const endMonth = startMonth + 2;
+      if (m < startMonth || m > endMonth) return false;
+    }
+    return true;
+  };
+  const filteredRows = allRows.filter(dateFilter);
 
   const revenueByPeriod = new Map<string, number>();
+  const cogsByPeriod = new Map<string, number>();
   const expenseByPeriod = new Map<string, number>();
 
-  for (const s of sales) {
-    const label = getPeriodLabel(s.date, period);
-    revenueByPeriod.set(label, (revenueByPeriod.get(label) ?? 0) + parseFloat(s.total as string));
-  }
-  for (const e of expenses) {
-    const label = getPeriodLabel(e.date, period);
-    expenseByPeriod.set(label, (expenseByPeriod.get(label) ?? 0) + parseFloat(e.amount as string));
+  for (const r of filteredRows) {
+    const label = getPeriodLabel(r.date, period);
+    const debit = parseFloat(r.debit || "0");
+    const credit = parseFloat(r.credit || "0");
+    if (codeStarts(r.code, "4")) {
+      // Revenue accounts: credit - debit = revenue
+      revenueByPeriod.set(label, (revenueByPeriod.get(label) ?? 0) + credit - debit);
+    } else if (r.code === "5000") {
+      // COGS account: debit - credit = cost
+      cogsByPeriod.set(label, (cogsByPeriod.get(label) ?? 0) + debit - credit);
+    } else if (codeStarts(r.code, "5") && r.code !== "5000") {
+      // Other expense accounts: debit - credit = expense
+      expenseByPeriod.set(label, (expenseByPeriod.get(label) ?? 0) + debit - credit);
+    }
   }
 
-  const allLabels = [...new Set([...revenueByPeriod.keys(), ...expenseByPeriod.keys()])].sort();
-  const revenue = sales.reduce((s, r) => s + parseFloat(r.total as string), 0);
+  const allLabels = sortPeriodLabels([...new Set([...revenueByPeriod.keys(), ...cogsByPeriod.keys(), ...expenseByPeriod.keys()])]);
+  const revenue = revenueFromGL(filteredRows);
+  const totalCOGS = cogsFromGL(filteredRows);
+  const totalOpex = expensesFromGL(filteredRows);
   const grossProfit = revenue - totalCOGS;
-  const totalOpex = expenses.reduce((s, e) => s + parseFloat(e.amount as string), 0);
   const netProfit = grossProfit - totalOpex;
 
   const periods = allLabels.map(label => ({
     label,
     revenue: revenueByPeriod.get(label) ?? 0,
     expenses: expenseByPeriod.get(label) ?? 0,
-    profit: (revenueByPeriod.get(label) ?? 0) - (expenseByPeriod.get(label) ?? 0),
+    cogs: cogsByPeriod.get(label) ?? 0,
+    profit: (revenueByPeriod.get(label) ?? 0) - (cogsByPeriod.get(label) ?? 0) - (expenseByPeriod.get(label) ?? 0),
   }));
 
   res.json(GetIncomeStatementResponse.parse(serializeForZod({
@@ -535,28 +573,54 @@ router.get("/analytics/balance-sheet", async (req, res): Promise<void> => {
   const liabilities = await Promise.all(accounts.filter(a => a.type === "liability").map(getBalWithName));
   const equity = await Promise.all(accounts.filter(a => a.type === "equity").map(getBalWithName));
 
+  // Compute retained earnings = cumulative net profit up to asOf date
+  const allRows = await getJournalLinesWithAccounts();
+  const rowsUpTo = allRows.filter(r => r.date <= asOf);
+  const revenue = revenueFromGL(rowsUpTo);
+  const cogs = cogsFromGL(rowsUpTo);
+  const opex = expensesFromGL(rowsUpTo);
+  const retainedEarnings = revenue - cogs - opex;
+
+  const retainedItem = { accountId: 0, accountName: "Retained Earnings", amount: Math.abs(retainedEarnings) };
+  if (retainedEarnings >= 0) {
+    equity.push(retainedItem);
+  } else {
+    // Negative retained earnings (accumulated loss) goes as negative equity or as a contra-equity
+    equity.push({ ...retainedItem, accountName: "Accumulated Loss" });
+  }
+
+  const totalEquityVal = equity.reduce((s, a) => s + a.amount, 0);
+  const totalAssetsVal = assets.reduce((s, a) => s + a.amount, 0);
+  const totalLiabilitiesVal = liabilities.reduce((s, a) => s + a.amount, 0);
+  const totalLiabilitiesEquity = totalLiabilitiesVal + totalEquityVal;
+  const difference = totalAssetsVal - totalLiabilitiesEquity;
+
   res.json(GetBalanceSheetResponse.parse(serializeForZod({
     assets,
     liabilities,
     equity,
-    totalAssets: assets.reduce((s, a) => s + a.amount, 0),
-    totalLiabilities: liabilities.reduce((s, a) => s + a.amount, 0),
-    totalEquity: equity.reduce((s, a) => s + a.amount, 0),
+    totalAssets: totalAssetsVal,
+    totalLiabilities: totalLiabilitiesVal,
+    totalEquity: totalEquityVal,
+    totalLiabilitiesEquity,
+    difference,
   })));
 });
 
 router.get("/analytics/best-periods", async (_req, res): Promise<void> => {
-  const allSales = await db.select().from(salesTable);
+  const allRows = await getJournalLinesWithAccounts();
+  const revenueRows = allRows.filter(r => codeStarts(r.code, "4"));
 
   const monthlyMap = new Map<string, number>();
   const quarterlyMap = new Map<string, number>();
   const yearlyMap = new Map<string, number>();
 
-  for (const s of allSales) {
-    const amount = parseFloat(s.total as string);
-    const mLabel = getPeriodLabel(s.date, "monthly");
-    const qLabel = getPeriodLabel(s.date, "quarterly");
-    const yLabel = getPeriodLabel(s.date, "yearly");
+  for (const r of revenueRows) {
+    const amount = parseFloat(r.credit || "0") - parseFloat(r.debit || "0");
+    if (amount <= 0) continue;
+    const mLabel = getPeriodLabel(r.date, "monthly");
+    const qLabel = getPeriodLabel(r.date, "quarterly");
+    const yLabel = getPeriodLabel(r.date, "yearly");
     monthlyMap.set(mLabel, (monthlyMap.get(mLabel) ?? 0) + amount);
     quarterlyMap.set(qLabel, (quarterlyMap.get(qLabel) ?? 0) + amount);
     yearlyMap.set(yLabel, (yearlyMap.get(yLabel) ?? 0) + amount);

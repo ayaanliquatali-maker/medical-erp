@@ -87,7 +87,7 @@ export default function Settings() {
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <Skeleton className="h-[600px] w-full max-w-3xl rounded-xl" />
       </div>
     );
@@ -96,8 +96,8 @@ export default function Settings() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-3xl">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground mt-1">Configure your store details and receipt appearance.</p>
+        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Configure your store details and receipt appearance.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

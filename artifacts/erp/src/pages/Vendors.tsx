@@ -5,6 +5,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAdmin } from "@/context/admin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,6 +33,7 @@ export default function Vendors() {
   const deleteVendor = useDeleteVendor();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isAdmin } = useAdmin();
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListVendorsQueryKey({}) });
 
@@ -73,8 +75,8 @@ export default function Vendors() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Vendors</h1>
-          <p className="text-muted-foreground mt-1">Manage your suppliers and distributors.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Vendors</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage your suppliers and distributors.</p>
         </div>
         <Button onClick={openAdd}><Plus className="w-4 h-4 mr-2" />Add Vendor</Button>
       </div>
@@ -98,11 +100,11 @@ export default function Vendors() {
           <TableBody>
             {isLoading ? [...Array(3)].map((_, i) => (
               <TableRow key={i}>{[...Array(5)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : vendors?.length === 0 ? (
+            )) : (vendors ?? []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center h-32 text-muted-foreground">No vendors. Add your first vendor to get started.</TableCell>
               </TableRow>
-            ) : vendors?.map(vendor => (
+            ) : (vendors ?? []).map(vendor => (
               <TableRow key={vendor.id}>
                 <TableCell className="font-medium">{vendor.name}</TableCell>
                 <TableCell>{vendor.contactName || "-"}</TableCell>
@@ -113,7 +115,9 @@ export default function Vendors() {
                 <TableCell className="text-right tabular-nums">{fmt(vendor.totalPurchases || 0)}</TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="icon" onClick={() => openEdit(vendor)}><Edit className="w-4 h-4" /></Button>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(vendor.id)}><Trash className="w-4 h-4" /></Button>
+                  {isAdmin ? (
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleteId(vendor.id)}><Trash className="w-4 h-4" /></Button>
+                  ) : null}
                 </TableCell>
               </TableRow>
             ))}

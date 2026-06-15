@@ -1,6 +1,8 @@
 import { Router } from "express";
-import { eq, and, lte } from "drizzle-orm";
+import { eq, and, lte, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { requireAdmin } from "../lib/admin";
+import { logAudit } from "../lib/audit";
 import { serializeForZod } from "../lib/serialize";
 import {
   inventoryBatchesTable,
@@ -41,8 +43,8 @@ async function enrichBatch(batch: typeof inventoryBatchesTable.$inferSelect) {
     sellingPricePerBox: parseFloat(batch.sellingPricePerBox as string),
     productName: product?.name ?? "",
     vendorName: vendor?.name ?? null,
-    remainingPacks: batch.remainingTablets / batch.tabsPerPack,
-    remainingBoxes: batch.remainingTablets / batch.tabsPerPack / batch.packsPerBox,
+    remainingPacks: batch.tabsPerPack > 0 ? batch.remainingTablets / batch.tabsPerPack : 0,
+    remainingBoxes: batch.tabsPerPack > 0 && batch.packsPerBox > 0 ? batch.remainingTablets / batch.tabsPerPack / batch.packsPerBox : 0,
   };
 }
 
@@ -138,42 +140,53 @@ router.post("/inventory", async (req, res): Promise<void> => {
     }
   }
 
+  const txnDate = data.receivedAt instanceof Date ? data.receivedAt.toISOString().slice(0, 10) : (data.receivedAt ? String(data.receivedAt) : new Date().toISOString().slice(0, 10));
+
   let journalEntryId: number | null = null;
 
-  if (data.paymentAccountId) {
-    const inventoryAccount = await db.query.accountsTable.findFirst({
-      where: eq(accountsTable.code, "1300"),
-    });
-
-    if (inventoryAccount) {
-      const [entry] = await db.insert(journalEntriesTable).values({
-        date: new Date().toISOString().slice(0, 10),
-        description: `Inventory received`,
-        type: "purchase",
-      }).returning();
-
-      await db.insert(journalLinesTable).values([
-        {
-          journalEntryId: entry.id,
-          accountId: inventoryAccount.id,
-          debit: totalCost.toString(),
-          credit: "0",
-          description: "Inventory purchase",
-        },
-        {
-          journalEntryId: entry.id,
-          accountId: data.paymentAccountId,
-          debit: "0",
-          credit: totalCost.toString(),
-          description: "Payment for inventory",
-        },
-      ]);
-
-      journalEntryId = entry.id;
-    }
+  // Cash balance check — reject if payment would overdraw the account
+  const payAccountDebitSum = await db
+    .select({ debit: sql<string>`COALESCE(SUM(${journalLinesTable.debit}), 0)`, credit: sql<string>`COALESCE(SUM(${journalLinesTable.credit}), 0)` })
+    .from(journalLinesTable)
+    .where(eq(journalLinesTable.accountId, data.paymentAccountId));
+  const payBal = parseFloat(payAccountDebitSum[0]?.debit || "0") - parseFloat(payAccountDebitSum[0]?.credit || "0");
+  if (payBal < totalCost) {
+    res.status(400).json({ error: `Insufficient cash in payment account. Need ${totalCost.toFixed(2)}, but only ${Math.max(0, payBal).toFixed(2)} available. Add capital (owner equity) first.` });
+    return;
   }
 
-  const [batch] = await db.insert(inventoryBatchesTable).values({
+  const inventoryAccount = await db.query.accountsTable.findFirst({
+    where: eq(accountsTable.code, "1300"),
+  });
+
+  if (inventoryAccount) {
+    const [entry] = await db.insert(journalEntriesTable).values({
+      date: txnDate,
+      description: `Inventory received`,
+      type: "purchase",
+    }).returning();
+
+    await db.insert(journalLinesTable).values([
+      {
+        journalEntryId: entry.id,
+        accountId: inventoryAccount.id,
+        debit: totalCost.toString(),
+        credit: "0",
+        description: "Inventory purchase",
+      },
+      {
+        journalEntryId: entry.id,
+        accountId: data.paymentAccountId,
+        debit: "0",
+        credit: totalCost.toString(),
+        description: "Payment for inventory",
+      },
+    ]);
+
+    journalEntryId = entry.id;
+  }
+
+  const batchInsert: Record<string, unknown> = {
     productId: data.productId,
     batchNumber: data.batchNumber,
     unitType: data.unitType,
@@ -190,7 +203,20 @@ router.post("/inventory", async (req, res): Promise<void> => {
     vendorId: data.vendorId,
     journalEntryId,
     notes: data.notes,
-  }).returning();
+  };
+  if (data.receivedAt) {
+    batchInsert.receivedAt = new Date(txnDate);
+  }
+
+  const [batch] = await db.insert(inventoryBatchesTable).values(batchInsert as any).returning();
+
+  await logAudit("inventory.receive", "inventory_batch", batch.id, {
+    productId: data.productId,
+    unitType: data.unitType,
+    boxesPurchased: data.boxesPurchased,
+    totalCost,
+    paymentAccountId: data.paymentAccountId,
+  }, "admin");
 
   const enriched = await enrichBatch(batch);
   res.status(201).json(GetInventoryBatchResponse.parse(serializeForZod(enriched)));
@@ -229,7 +255,7 @@ router.patch("/inventory/:id", async (req, res): Promise<void> => {
   res.json(UpdateInventoryBatchResponse.parse(serializeForZod(enriched)));
 });
 
-router.delete("/inventory/:id", async (req, res): Promise<void> => {
+router.delete("/inventory/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -248,6 +274,7 @@ router.delete("/inventory/:id", async (req, res): Promise<void> => {
     .where(eq(inventoryBatchesTable.id, id))
     .returning();
 
+  await logAudit("inventory.delete", "inventory_batch", id, { action: "delete batch" }, "admin");
   const enriched = await enrichBatch(deleted);
   res.json(DeleteInventoryBatchResponse.parse(serializeForZod(enriched)));
 });

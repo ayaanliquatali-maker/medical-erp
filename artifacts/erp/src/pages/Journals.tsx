@@ -1,22 +1,26 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   useListJournals, useCreateJournal, useDeleteJournal, useListAccounts,
   getListJournalsQueryKey, getListAccountsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAdmin } from "@/context/admin";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, BookOpen, Trash2, PlusCircle, ChevronDown, ChevronRight, ArrowRight } from "lucide-react";
+import { Plus, BookOpen, Trash2, PlusCircle, ChevronDown, ChevronRight, ArrowRight, Check } from "lucide-react";
 import { useCurrency } from "@/hooks/use-currency";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { parseDate } from "@/lib/utils";
 
 type JournalLine = { accountId: string; debit: string; credit: string; description: string };
 const emptyLine = (): JournalLine => ({ accountId: "", debit: "", credit: "", description: "" });
@@ -45,6 +49,7 @@ export default function Journals() {
   const deleteJournal = useDeleteJournal();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { isAdmin } = useAdmin();
 
   const totalDebit = lines.reduce((s, l) => s + (Number(l.debit) || 0), 0);
   const totalCredit = lines.reduce((s, l) => s + (Number(l.credit) || 0), 0);
@@ -106,8 +111,8 @@ export default function Journals() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Journal Entries</h1>
-          <p className="text-muted-foreground mt-1">Click any entry to expand and see debit/credit accounts.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Journal Entries</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Click any entry to expand and see debit/credit accounts.</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />Manual Entry</Button>
       </div>
@@ -129,11 +134,11 @@ export default function Journals() {
           <TableBody>
             {isLoading ? [...Array(6)].map((_, i) => (
               <TableRow key={i}>{[...Array(8)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : journals?.length === 0 ? (
+            )) : (journals ?? []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center h-32 text-muted-foreground">No journal entries yet. Entries are auto-created with sales, purchases, and expenses.</TableCell>
               </TableRow>
-            ) : journals?.map(journal => {
+            ) : (journals ?? []).map(journal => {
               const expanded = expandedIds.has(journal.id);
               const debitLines = (journal as any).lines?.filter((l: any) => l.debit > 0) ?? [];
               const creditLines = (journal as any).lines?.filter((l: any) => l.credit > 0) ?? [];
@@ -148,7 +153,7 @@ export default function Journals() {
                         ? <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
                     </TableCell>
-                    <TableCell className="whitespace-nowrap">{format(new Date(journal.date), "MMM d, yyyy")}</TableCell>
+                    <TableCell className="whitespace-nowrap">{format(parseDate(journal.date), "MMM d, yyyy")}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className={`capitalize ${getTypeColor(journal.type)}`}>{journal.type}</Badge>
                     </TableCell>
@@ -162,9 +167,11 @@ export default function Journals() {
                     <TableCell className="text-right font-medium text-blue-600 tabular-nums">{fmt(journal.totalDebit || 0)}</TableCell>
                     <TableCell className="text-right font-medium text-green-600 tabular-nums">{fmt(journal.totalCredit || 0)}</TableCell>
                     <TableCell className="text-right" onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setDeleteId(journal.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      {isAdmin ? (
+                        <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => setDeleteId(journal.id)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                   {expanded && (
@@ -250,12 +257,11 @@ export default function Journals() {
                     {lines.map((line, i) => (
                       <TableRow key={i}>
                         <TableCell className="p-2">
-                          <Select value={line.accountId} onValueChange={v => setLines(ls => ls.map((l, j) => j === i ? { ...l, accountId: v } : l))}>
-                            <SelectTrigger className="h-8"><SelectValue placeholder="Select account" /></SelectTrigger>
-                            <SelectContent>
-                              {accounts?.map(a => <SelectItem key={a.id} value={String(a.id)}>{a.code} — {a.name} ({a.type})</SelectItem>)}
-                            </SelectContent>
-                          </Select>
+                          <AccountSelect
+                            value={line.accountId}
+                            accounts={accounts ?? []}
+                            onChange={v => setLines(ls => ls.map((l, j) => j === i ? { ...l, accountId: v } : l))}
+                          />
                         </TableCell>
                         <TableCell className="p-2">
                           <Input className="h-8" type="number" step="0.01" value={line.debit} onChange={setLine(i, "debit")} placeholder="0.00" />
@@ -312,5 +318,54 @@ export default function Journals() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+function flattenAccounts(accounts: any[]): any[] {
+  const result: any[] = [];
+  for (const a of accounts) {
+    result.push(a);
+    if (a.children?.length) result.push(...flattenAccounts(a.children));
+  }
+  return result;
+}
+
+function AccountSelect({ value, accounts, onChange }: { value: string; accounts: any[]; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const flatAccounts = useMemo(() => flattenAccounts(accounts), [accounts]);
+  const selected = flatAccounts.find(a => String(a.id) === value);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 w-full justify-start text-xs font-normal px-2">
+          {selected ? `${selected.code} — ${selected.name}` : <span className="text-muted-foreground">Select account</span>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[320px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search accounts..." className="h-9" />
+          <CommandList>
+            <CommandEmpty>No account found.</CommandEmpty>
+            <CommandGroup>
+              {flatAccounts.map(a => (
+                <CommandItem
+                  key={a.id}
+                  value={`${a.code} ${a.name} ${a.type}`}
+                  onSelect={() => { onChange(String(a.id)); setOpen(false); }}
+                >
+                  <Check className={`w-4 h-4 mr-2 ${String(a.id) === value ? "opacity-100" : "opacity-0"}`} />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="font-mono text-xs text-muted-foreground shrink-0">{a.code}</span>
+                    <span className="truncate">{a.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">({a.type})</span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

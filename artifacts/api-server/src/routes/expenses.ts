@@ -1,6 +1,8 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { requireAdmin } from "../lib/admin";
+import { logAudit } from "../lib/audit";
 import { serializeForZod } from "../lib/serialize";
 import { expensesTable, accountsTable, vendorsTable, journalEntriesTable, journalLinesTable } from "@workspace/db";
 import {
@@ -71,6 +73,17 @@ router.post("/expenses", async (req, res): Promise<void> => {
 
   const dateStr = data.date instanceof Date ? data.date.toISOString().slice(0, 10) : String(data.date);
 
+  // Cash balance check — reject if payment would overdraw the account
+  const payAccountSum = await db
+    .select({ debit: sql<string>`COALESCE(SUM(${journalLinesTable.debit}), 0)`, credit: sql<string>`COALESCE(SUM(${journalLinesTable.credit}), 0)` })
+    .from(journalLinesTable)
+    .where(eq(journalLinesTable.accountId, data.paymentAccountId));
+  const payBal = parseFloat(payAccountSum[0]?.debit || "0") - parseFloat(payAccountSum[0]?.credit || "0");
+  if (payBal < data.amount) {
+    res.status(400).json({ error: `Insufficient cash in payment account. Need ${data.amount.toFixed(2)}, but only ${Math.max(0, payBal).toFixed(2)} available. Add capital (owner equity) first.` });
+    return;
+  }
+
   // Create journal entry: DR Expense Account, CR Payment Account
   const [journalEntry] = await db.insert(journalEntriesTable).values({
     date: dateStr,
@@ -95,6 +108,12 @@ router.post("/expenses", async (req, res): Promise<void> => {
     journalEntryId: journalEntry.id,
   }).returning();
 
+  await logAudit("expense.create", "expense", expense.id, {
+    amount: data.amount,
+    description: data.description,
+    expenseAccountId: data.expenseAccountId,
+  });
+
   const enriched = await getExpenseEnriched(expense.id);
   res.status(201).json(GetExpenseResponse.parse(serializeForZod(enriched)));
 });
@@ -108,7 +127,7 @@ router.get("/expenses/:id", async (req, res): Promise<void> => {
   res.json(GetExpenseResponse.parse(serializeForZod(expense)));
 });
 
-router.delete("/expenses/:id", async (req, res): Promise<void> => {
+router.delete("/expenses/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -118,6 +137,7 @@ router.delete("/expenses/:id", async (req, res): Promise<void> => {
     await db.delete(journalEntriesTable).where(eq(journalEntriesTable.id, expense.journalEntryId));
   }
   await db.delete(expensesTable).where(eq(expensesTable.id, id));
+  await logAudit("expense.delete", "expense", id, { action: "delete expense" }, "admin");
   res.json(DeleteExpenseResponse.parse(serializeForZod(expense)));
 });
 

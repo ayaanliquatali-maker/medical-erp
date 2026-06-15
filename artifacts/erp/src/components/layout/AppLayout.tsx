@@ -1,15 +1,13 @@
-import { Sidebar } from "./Sidebar";
 import { AiChatPanel } from "../chat/AiChatPanel";
+import { Navbar } from "./Navbar";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen w-full bg-background text-foreground">
-      <Sidebar />
-      <main className="flex-1 flex flex-col min-w-0">
-        <div className="flex-1 overflow-auto p-6 md:p-8">
-          <div className="mx-auto max-w-7xl">
-            {children}
-          </div>
+    <div className="min-h-screen w-full bg-background text-foreground flex flex-col">
+      <Navbar />
+      <main className="flex-1">
+        <div className="max-w-screen-2xl mx-auto px-4 md:px-6 py-6">
+          {children}
         </div>
       </main>
       <AiChatPanel />

@@ -43,6 +43,7 @@ async function buildStoreContext(): Promise<string> {
     let tablets = qty;
     if (line.unitType === "pack") tablets = qty * tabsPerPack;
     else if (line.unitType === "box") tablets = qty * tabsPerPack * packsPerBox;
+    else tablets = qty;
     totalCOGS += tablets * cost;
   }
   const grossProfit = totalRevenue - totalCOGS;
@@ -83,6 +84,7 @@ async function buildStoreContext(): Promise<string> {
       let tablets = qty;
       if (line.unitType === "pack") tablets = qty * tabsPerPack;
       else if (line.unitType === "box") tablets = qty * tabsPerPack * packsPerBox;
+      else tablets = qty;
       totalTabletsSold += tablets;
       totalProductRevenue += parseFloat(line.total as string);
     }
@@ -122,6 +124,19 @@ ${batchDetail ? `  Active batches:\n${batchDetail}` : "  No active batches"}`;
   // Total inventory value
   const totalCostValue = allBatches.reduce((s, b) => s + b.remainingTablets * parseFloat(b.costPerUnit as string), 0);
 
+  // Sales breakdown by date
+  const salesByDate = new Map<string, { count: number; total: number }>();
+  for (const s of allSales) {
+    const entry = salesByDate.get(s.date) ?? { count: 0, total: 0 };
+    entry.count++;
+    entry.total += parseFloat(s.total as string);
+    salesByDate.set(s.date, entry);
+  }
+  const dailySalesLines = Array.from(salesByDate.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, { count, total }]) => `  ${date}: ₨${total.toFixed(2)} (${count} transaction${count > 1 ? "s" : ""})`)
+    .join("\n");
+
   return `=== MediERP Store Data (as of ${today}) ===
 
 FINANCIAL SUMMARY:
@@ -132,6 +147,9 @@ FINANCIAL SUMMARY:
 - Net Profit: ₨${netProfit.toFixed(2)}
 - Today's Revenue: ₨${todayRevenue.toFixed(2)} (${todaySales.length} transactions)
 - Total Sales Transactions: ${allSales.length}
+
+DAILY SALES BREAKDOWN:
+${dailySalesLines || "  No sales recorded"}
 
 INVENTORY SUMMARY:
 - Total Products: ${allProducts.length} (${allProducts.filter(p => p.isActive).length} active)
@@ -144,6 +162,7 @@ PRODUCTS & INVENTORY DETAIL:
 ${productDetails.join("\n\n")}
 
 INSTRUCTIONS FOR CALCULATIONS:
+- When asked about revenue for a specific date, look at the DAILY SALES BREAKDOWN above
 - When asked about max revenue from selling stock at a custom price: multiply that price by the tablet count for that product
 - When asked about profit at a custom price: (custom price - cost per tablet) × tablets in stock
 - Always show exact numbers from the data above

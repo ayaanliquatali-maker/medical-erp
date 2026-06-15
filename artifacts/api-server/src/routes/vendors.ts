@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { eq, sum } from "drizzle-orm";
 import { db } from "@workspace/db";
+import { requireAdmin } from "../lib/admin";
+import { logAudit } from "../lib/audit";
 import { serializeForZod } from "../lib/serialize";
 import { vendorsTable, expensesTable, inventoryBatchesTable } from "@workspace/db";
 import {
@@ -79,12 +81,13 @@ router.patch("/vendors/:id", async (req, res): Promise<void> => {
   res.json(UpdateVendorResponse.parse(serializeForZod(enriched)));
 });
 
-router.delete("/vendors/:id", async (req, res): Promise<void> => {
+router.delete("/vendors/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [deleted] = await db.delete(vendorsTable).where(eq(vendorsTable.id, id)).returning();
   if (!deleted) { res.status(404).json({ error: "Vendor not found" }); return; }
+  await logAudit("vendor.delete", "vendor", id, { action: "delete vendor" }, "admin");
   res.json(DeleteVendorResponse.parse(serializeForZod({ ...deleted, totalPurchases: 0, totalExpenses: 0 })));
 });
 

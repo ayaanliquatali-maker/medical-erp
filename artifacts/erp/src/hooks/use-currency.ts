@@ -6,8 +6,10 @@ export function useCurrency() {
   const symbol = settings?.currency ?? "₨";
 
   const fmt = useCallback(
-    (value: number, decimals = 2) =>
-      `${symbol}${value.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`,
+    (value?: number | null, decimals = 2) => {
+      const n = typeof value === "number" && !Number.isNaN(value) ? value : 0;
+      return `${symbol}${n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+    },
     [symbol]
   );
 

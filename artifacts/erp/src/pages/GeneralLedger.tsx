@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { format } from "date-fns";
+import { parseDate } from "@/lib/utils";
 import { useCurrency } from "@/hooks/use-currency";
 
 const typeColor: Record<string, string> = {
@@ -87,7 +88,7 @@ function AccountLedger({ accountId, onBack }: { accountId: number; onBack: () =>
             ) : data.transactions.map((tx: any) => (
               <TableRow key={tx.id} className="hover:bg-muted/50">
                 <TableCell className="whitespace-nowrap text-sm">
-                  {format(new Date(tx.date), "MMM d, yyyy")}
+                  {format(parseDate(tx.date), "MMM d, yyyy")}
                 </TableCell>
                 <TableCell className="text-sm max-w-xs truncate">{tx.description}</TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">{tx.reference || "-"}</TableCell>
@@ -139,8 +140,8 @@ export default function GeneralLedger() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">General Ledger</h1>
-        <p className="text-muted-foreground mt-1">Click any account to view its full transaction history and running balance.</p>
+        <h1 className="text-2xl font-bold tracking-tight">General Ledger</h1>
+        <p className="text-sm text-muted-foreground mt-0.5">Click any account to view its full transaction history and running balance.</p>
       </div>
 
       {isLoading ? (

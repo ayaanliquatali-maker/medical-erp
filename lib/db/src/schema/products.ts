@@ -9,6 +9,7 @@ export const productsTable = pgTable("products", {
   category: text("category"),
   reorderLevel: integer("reorder_level").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }).default(null as any),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

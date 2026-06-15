@@ -65,8 +65,8 @@ export default function Accounts() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Chart of Accounts</h1>
-          <p className="text-muted-foreground mt-1">Manage financial accounts and view balances.</p>
+          <h1 className="text-2xl font-bold tracking-tight">Chart of Accounts</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Manage financial accounts and view balances.</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}><Plus className="w-4 h-4 mr-2" />New Account</Button>
       </div>
@@ -85,11 +85,11 @@ export default function Accounts() {
           <TableBody>
             {isLoading ? [...Array(8)].map((_, i) => (
               <TableRow key={i}>{[...Array(5)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : accounts?.length === 0 ? (
+            )) : (accounts ?? []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center h-32 text-muted-foreground">No accounts found.</TableCell>
               </TableRow>
-            ) : accounts?.map(acc => (
+            ) : (accounts ?? []).map(acc => (
               <TableRow key={acc.id} className="hover:bg-muted/50 transition-colors">
                 <TableCell className="font-mono text-muted-foreground">{acc.code}</TableCell>
                 <TableCell className="font-medium">
@@ -143,7 +143,7 @@ export default function Accounts() {
                 <SelectTrigger><SelectValue placeholder="None (top-level)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {accounts?.map(a => <SelectItem key={a.id} value={String(a.id)}>{a.code} — {a.name}</SelectItem>)}
+                  {(accounts ?? []).map(a => <SelectItem key={a.id} value={String(a.id)}>{a.code} — {a.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

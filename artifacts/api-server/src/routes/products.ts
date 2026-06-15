@@ -1,10 +1,13 @@
 import { Router } from "express";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { serializeForZod } from "../lib/serialize";
+import { requireAdmin, isAdminRequest } from "../lib/admin";
+import { logAudit } from "../lib/audit";
 import {
   productsTable,
   inventoryBatchesTable,
+  saleLinesTable,
 } from "@workspace/db";
 import {
   ListProductsResponse,
@@ -25,7 +28,7 @@ const router = Router();
 
 async function getProductWithStock(productId: number) {
   const product = await db.query.productsTable.findFirst({
-    where: eq(productsTable.id, productId),
+    where: and(eq(productsTable.id, productId), isNull(productsTable.deletedAt)),
   });
   if (!product) return null;
 
@@ -74,7 +77,7 @@ router.get("/products", async (req, res): Promise<void> => {
   const qp = ListProductsQueryParams.safeParse(req.query);
   const params = qp.success ? qp.data : {};
 
-  let products = await db.select().from(productsTable);
+  let products = await db.select().from(productsTable).where(isNull(productsTable.deletedAt));
 
   if (params.isActive !== undefined) {
     products = products.filter(p => p.isActive === params.isActive);
@@ -139,6 +142,11 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
     return;
   }
 
+  if (parsed.data.isActive !== undefined && !isAdminRequest(req)) {
+    res.status(401).json({ error: "Admin credentials required to change product status" });
+    return;
+  }
+
   const [updated] = await db.update(productsTable)
     .set({ ...parsed.data as any, updatedAt: new Date() })
     .where(eq(productsTable.id, id))
@@ -149,22 +157,24 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
   res.json(UpdateProductResponse.parse(serializeForZod(enriched)));
 });
 
-router.delete("/products/:id", async (req, res): Promise<void> => {
+router.delete("/products/:id", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [updated] = await db.update(productsTable)
-    .set({ isActive: false, updatedAt: new Date() })
-    .where(eq(productsTable.id, id))
-    .returning();
+  const product = await getProductWithStock(id);
+  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
 
-  if (!updated) { res.status(404).json({ error: "Product not found" }); return; }
-  const enriched = await getProductWithStock(id);
-  res.json(DeleteProductResponse.parse(serializeForZod(enriched)));
+  await db.delete(inventoryBatchesTable).where(eq(inventoryBatchesTable.productId, id));
+  await db.delete(saleLinesTable).where(eq(saleLinesTable.productId, id));
+
+  await db.delete(productsTable).where(eq(productsTable.id, id));
+
+  await logAudit("product.delete", "product", id, { action: "delete product" }, "admin");
+  res.status(204).send();
 });
 
-router.post("/products/:id/clear-stock", async (req, res): Promise<void> => {
+router.post("/products/:id/clear-stock", requireAdmin, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -173,6 +183,7 @@ router.post("/products/:id/clear-stock", async (req, res): Promise<void> => {
     .set({ remainingTablets: 0 })
     .where(eq(inventoryBatchesTable.productId, id));
 
+  await logAudit("product.clearStock", "product", id, { action: "clear stock" }, "admin");
   const enriched = await getProductWithStock(id);
   if (!enriched) { res.status(404).json({ error: "Product not found" }); return; }
   res.json(ClearProductStockResponse.parse(serializeForZod(enriched)));

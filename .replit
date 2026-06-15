@@ -6,7 +6,7 @@ deploymentTarget = "autoscale"
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
-env = { "CI" = "true" }
+env = { "CI" = "true", "DATABASE_URL" = "postgres://postgres:aghafication@localhost:5432/MedicalERP" }
 
 [workflows]
 runButton = "Project"

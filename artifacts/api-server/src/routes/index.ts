@@ -10,10 +10,14 @@ import salesRouter from "./sales";
 import receiptRouter from "./receipt";
 import analyticsRouter from "./analytics";
 import aiRouter from "./ai";
+import adminRouter from "./admin";
+import capitalRouter from "./capital";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use(adminRouter);
+router.use(capitalRouter);
 router.use(productsRouter);
 router.use(inventoryRouter);
 router.use(accountsRouter);

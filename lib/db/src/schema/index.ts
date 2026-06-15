@@ -6,3 +6,4 @@ export * from "./inventory";
 export * from "./expenses";
 export * from "./sales";
 export * from "./receipt_settings";
+export * from "./audit_logs";
