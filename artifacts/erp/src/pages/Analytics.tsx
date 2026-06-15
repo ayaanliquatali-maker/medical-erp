@@ -239,7 +239,7 @@ export default function Analytics() {
     return list;
   }, [inventory, period, year, months, quarter]);
 
-  const inventoryValuation = (products ?? []).map(p => {
+  const inventoryValuation = (Array.isArray(products) ? products : []).map(p => {
     const batches = filteredInventory.filter(b => b.productName === p.name);
     const remainingTablets = batches.reduce((s, b) => s + b.remainingTablets, 0);
     const weightedCost = batches.reduce((s, b) => s + b.remainingTablets * b.costPerUnit, 0);
@@ -636,7 +636,7 @@ function ExpensesSection({ fmt }: { fmt: (v: number) => string }) {
   const [period, setPeriod] = useState<"daily" | "monthly" | "quarterly" | "yearly">("yearly");
   const [year, setYear] = useState(now.getFullYear());
   const { data, isLoading } = useGetExpenseAnalytics({ period, year }, { query: { queryKey: getGetExpenseAnalyticsQueryKey({ period, year }) } });
-  const items = (data?.byAccount ?? []).filter(a => a.amount > 0);
+  const items = (Array.isArray(data?.byAccount) ? data.byAccount : []).filter(a => a.amount > 0);
   const totalExpenses = items.reduce((s, a) => s + a.amount, 0);
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

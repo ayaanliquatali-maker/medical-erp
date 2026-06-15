@@ -306,7 +306,7 @@ function AddCapitalDialog({ onClose }: { onClose: () => void }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: accounts } = useListAccounts({}, { query: { queryKey: getListAccountsQueryKey({}) } });
-  const cashAccounts = accounts?.filter(a => a.type === "asset" && (a.code?.startsWith("1") || a.type === "asset")) ?? [];
+  const cashAccounts = (Array.isArray(accounts) ? accounts : []).filter(a => a.type === "asset" && (a.code?.startsWith("1") || a.type === "asset"));
 
   const handleSubmit = async () => {
     if (!amount || !cashAccountId) {

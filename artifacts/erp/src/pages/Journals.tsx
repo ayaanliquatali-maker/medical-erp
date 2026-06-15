@@ -134,14 +134,14 @@ export default function Journals() {
           <TableBody>
             {isLoading ? [...Array(6)].map((_, i) => (
               <TableRow key={i}>{[...Array(8)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : (journals ?? []).length === 0 ? (
+            )) : (Array.isArray(journals) ? journals : []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="text-center h-32 text-muted-foreground">No journal entries yet. Entries are auto-created with sales, purchases, and expenses.</TableCell>
               </TableRow>
-            ) : (journals ?? []).map(journal => {
+            ) : (Array.isArray(journals) ? journals : []).map(journal => {
               const expanded = expandedIds.has(journal.id);
-              const debitLines = (journal as any).lines?.filter((l: any) => l.debit > 0) ?? [];
-              const creditLines = (journal as any).lines?.filter((l: any) => l.credit > 0) ?? [];
+              const debitLines = (Array.isArray(journal.lines) ? journal.lines : []).filter((l) => l.debit > 0);
+              const creditLines = (Array.isArray(journal.lines) ? journal.lines : []).filter((l) => l.credit > 0);
               return (
                 <> <TableRow
                     key={journal.id}

@@ -100,11 +100,11 @@ export default function Vendors() {
           <TableBody>
             {isLoading ? [...Array(3)].map((_, i) => (
               <TableRow key={i}>{[...Array(5)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : (vendors ?? []).length === 0 ? (
+            )) : (Array.isArray(vendors) ? vendors : []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center h-32 text-muted-foreground">No vendors. Add your first vendor to get started.</TableCell>
               </TableRow>
-            ) : (vendors ?? []).map(vendor => (
+            ) : (Array.isArray(vendors) ? vendors : []).map(vendor => (
               <TableRow key={vendor.id}>
                 <TableCell className="font-medium">{vendor.name}</TableCell>
                 <TableCell>{vendor.contactName || "-"}</TableCell>

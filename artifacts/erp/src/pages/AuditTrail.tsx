@@ -68,7 +68,7 @@ export default function AuditTrail() {
     },
   });
 
-  const logs = useMemo(() => data ?? [], [data]);
+  const logs = useMemo(() => (Array.isArray(data) ? data : []), [data]);
 
   if (checking) {
     return (

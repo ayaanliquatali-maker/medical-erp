@@ -339,11 +339,11 @@ export default function Sales() {
           <TableBody>
             {isLoading ? [...Array(5)].map((_, i) => (
               <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : (sales ?? []).length === 0 ? (
+            )) : (Array.isArray(sales) ? sales : []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No sales yet. Make a sale from Point of Sale.</TableCell>
               </TableRow>
-            ) : (sales ?? []).map(sale => (
+            ) : (Array.isArray(sales) ? sales : []).map(sale => (
               <TableRow
                 key={sale.id}
                 className="cursor-pointer hover:bg-muted/50 transition-colors"

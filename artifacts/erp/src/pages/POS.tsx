@@ -47,7 +47,7 @@ export default function Sales() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const cashAccounts = accounts?.filter(a => a.type === "asset" && (a.code === "1000" || a.code === "1100")) ?? [];
+  const cashAccounts = (Array.isArray(accounts) ? accounts : []).filter(a => a.type === "asset" && (a.code === "1000" || a.code === "1100"));
 
   const addProductLine = (product: any) => {
     setLines(prev => {
@@ -163,7 +163,7 @@ export default function Sales() {
     });
   };
 
-  const productSelectOptions = (products ?? []).filter(
+  const productSelectOptions = (Array.isArray(products) ? products : []).filter(
     p => !lines.some(l => l.productId === p.id)
   );
 

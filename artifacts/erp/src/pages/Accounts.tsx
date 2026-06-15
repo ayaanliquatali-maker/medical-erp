@@ -85,11 +85,11 @@ export default function Accounts() {
           <TableBody>
             {isLoading ? [...Array(8)].map((_, i) => (
               <TableRow key={i}>{[...Array(5)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : (accounts ?? []).length === 0 ? (
+            )) : (Array.isArray(accounts) ? accounts : []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center h-32 text-muted-foreground">No accounts found.</TableCell>
               </TableRow>
-            ) : (accounts ?? []).map(acc => (
+            ) : (Array.isArray(accounts) ? accounts : []).map(acc => (
               <TableRow key={acc.id} className="hover:bg-muted/50 transition-colors">
                 <TableCell className="font-mono text-muted-foreground">{acc.code}</TableCell>
                 <TableCell className="font-medium">
@@ -143,7 +143,7 @@ export default function Accounts() {
                 <SelectTrigger><SelectValue placeholder="None (top-level)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {(accounts ?? []).map(a => <SelectItem key={a.id} value={String(a.id)}>{a.code} — {a.name}</SelectItem>)}
+                  {(Array.isArray(accounts) ? accounts : []).map(a => <SelectItem key={a.id} value={String(a.id)}>{a.code} — {a.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

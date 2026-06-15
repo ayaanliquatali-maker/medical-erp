@@ -42,7 +42,7 @@ export default function Inventory() {
   const { toast } = useToast();
   const { isAdmin } = useAdmin();
 
-  const cashAccounts = accounts?.filter(a => a.type === "asset" || a.type === "liability") ?? [];
+  const cashAccounts = (Array.isArray(accounts) ? accounts : []).filter(a => a.type === "asset" || a.type === "liability");
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
 
@@ -204,7 +204,7 @@ export default function Inventory() {
               <Select value={form.productId} onValueChange={v => setForm(f => ({ ...f, productId: v }))}>
                 <SelectTrigger><SelectValue placeholder="Select product" /></SelectTrigger>
                 <SelectContent>
-                  {(products ?? []).map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                  {(Array.isArray(products) ? products : []).map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -260,7 +260,7 @@ export default function Inventory() {
                 <SelectTrigger><SelectValue placeholder="Select vendor (optional)" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
-                  {(vendors ?? []).map(v => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}
+                  {(Array.isArray(vendors) ? vendors : []).map(v => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

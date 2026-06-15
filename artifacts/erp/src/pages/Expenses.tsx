@@ -37,8 +37,8 @@ export default function Expenses() {
   const { toast } = useToast();
   const { isAdmin } = useAdmin();
 
-  const expenseAccounts = accounts?.filter(a => a.type === "expense") ?? [];
-  const paymentAccounts = accounts?.filter(a => a.type === "asset" && (a.code === "1000" || a.code === "1100")) ?? [];
+  const expenseAccounts = (Array.isArray(accounts) ? accounts : []).filter(a => a.type === "expense");
+  const paymentAccounts = (Array.isArray(accounts) ? accounts : []).filter(a => a.type === "asset" && (a.code === "1000" || a.code === "1100"));
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListExpensesQueryKey({}) });
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -102,11 +102,11 @@ export default function Expenses() {
           <TableBody>
             {isLoading ? [...Array(5)].map((_, i) => (
               <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : (expenses ?? []).length === 0 ? (
+            )) : (Array.isArray(expenses) ? expenses : []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No expenses recorded yet.</TableCell>
               </TableRow>
-            ) : (expenses ?? []).map(expense => (
+            ) : (Array.isArray(expenses) ? expenses : []).map(expense => (
               <TableRow key={expense.id}> 
                 <TableCell className="font-medium">{format(parseDate(expense.date), "MMM d, yyyy")}</TableCell>
                 <TableCell>{expense.description}</TableCell>
