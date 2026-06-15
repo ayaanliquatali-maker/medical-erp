@@ -158,11 +158,11 @@ export default function Inventory() {
               <TableRow key={i}>
                 {[...Array(6)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}
               </TableRow>
-            )) : (inventory ?? []).length === 0 ? (
+            )) : (Array.isArray(inventory) ? inventory : []).length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No inventory batches. Click "Receive Inventory" to add stock.</TableCell>
               </TableRow>
-            ) : (inventory ?? []).map(batch => {
+            ) : (Array.isArray(inventory) ? inventory : []).map(batch => {
               const status = getExpiryStatus(batch.expiryDate);
               const remaining = view === "tablets" ? batch.remainingTablets : view === "packs" ? batch.remainingPacks : batch.remainingBoxes;
               const total = view === "tablets" ? batch.totalTablets : view === "packs" ? Math.floor(batch.totalTablets / Math.max(1, batch.tabsPerPack)) : batch.boxesPurchased;
