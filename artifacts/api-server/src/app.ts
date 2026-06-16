@@ -38,4 +38,9 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
+// Railway readiness probe handler — any request to root returns 200
+app.use((_req, res) => {
+  res.json({ status: "ok" });
+});
+
 export default app;
