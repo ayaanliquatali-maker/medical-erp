@@ -657,3 +657,94 @@ export type GetBalanceSheetParams = {
 asOf?: string;
 };
 
+// ─── Sales Returns ───────────────────────────────────────────────────────────
+
+export interface SalesReturnLineInput {
+  productId: number;
+  unitType: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+}
+
+export interface CreateSalesReturnBody {
+  date: string;
+  paymentAccountId: number;
+  reason?: string;
+  lines: SalesReturnLineInput[];
+}
+
+export interface SalesReturnLineResponse {
+  id: number;
+  productId: number;
+  productName: string;
+  unitType: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  total: number;
+}
+
+export interface SalesReturn {
+  id: number;
+  returnNumber: string;
+  date: string;
+  originalSaleId: number;
+  customerName?: string | null;
+  subtotal: number;
+  total: number;
+  paymentAccountId: number;
+  paymentAccountName?: string | null;
+  journalEntryId?: number | null;
+  reason?: string | null;
+  createdAt: string;
+  lines: SalesReturnLineResponse[];
+}
+
+// ─── Purchase Returns ────────────────────────────────────────────────────────
+
+export interface PurchaseReturnLineInput {
+  productId: number;
+  unitType: string;
+  quantity: number;
+  unitPrice: number;
+  discount?: number;
+}
+
+export interface CreatePurchaseReturnBody {
+  date: string;
+  originalBatchId: number;
+  paymentAccountId: number;
+  reason?: string;
+  lines: PurchaseReturnLineInput[];
+}
+
+export interface PurchaseReturnLineResponse {
+  id: number;
+  productId: number;
+  productName: string;
+  unitType: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  total: number;
+}
+
+export interface PurchaseReturn {
+  id: number;
+  returnNumber: string;
+  date: string;
+  originalBatchId: number;
+  batchNumber?: string | null;
+  vendorId?: number | null;
+  vendorName?: string | null;
+  subtotal: number;
+  total: number;
+  paymentAccountId: number;
+  paymentAccountName?: string | null;
+  journalEntryId?: number | null;
+  reason?: string | null;
+  createdAt: string;
+  lines: PurchaseReturnLineResponse[];
+}
+

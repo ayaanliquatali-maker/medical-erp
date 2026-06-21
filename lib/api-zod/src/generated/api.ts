@@ -1331,3 +1331,100 @@ export const AiChatResponse = zod.object({
 })
 
 
+// ─── Sales Returns ──────────────────────────────────────────────
+
+export const SalesReturnLineInput = zod.object({
+  "productId": zod.number(),
+  "unitType": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "discount": zod.number().optional()
+})
+
+export const CreateSalesReturnBody = zod.object({
+  "date": zod.string(),
+  "paymentAccountId": zod.number(),
+  "reason": zod.string().optional(),
+  "lines": zod.array(SalesReturnLineInput)
+})
+
+export const SalesReturnLineResponse = zod.object({
+  "id": zod.number(),
+  "productId": zod.number(),
+  "productName": zod.string(),
+  "unitType": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "discount": zod.number(),
+  "total": zod.number()
+})
+
+export const SalesReturnResponse = zod.object({
+  "id": zod.number(),
+  "returnNumber": zod.string(),
+  "date": zod.string(),
+  "originalSaleId": zod.number(),
+  "customerName": zod.string().nullish(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "paymentAccountId": zod.number(),
+  "paymentAccountName": zod.string().nullish(),
+  "journalEntryId": zod.number().nullish(),
+  "reason": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "lines": zod.array(SalesReturnLineResponse)
+})
+
+export const ListSalesReturnsResponse = zod.array(SalesReturnResponse)
+
+
+// ─── Purchase Returns ───────────────────────────────────────────
+
+export const PurchaseReturnLineInput = zod.object({
+  "productId": zod.number(),
+  "unitType": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "discount": zod.number().optional()
+})
+
+export const CreatePurchaseReturnBody = zod.object({
+  "date": zod.string(),
+  "originalBatchId": zod.number(),
+  "paymentAccountId": zod.number(),
+  "reason": zod.string().optional(),
+  "lines": zod.array(PurchaseReturnLineInput)
+})
+
+export const PurchaseReturnLineResponse = zod.object({
+  "id": zod.number(),
+  "productId": zod.number(),
+  "productName": zod.string(),
+  "unitType": zod.string(),
+  "quantity": zod.number(),
+  "unitPrice": zod.number(),
+  "discount": zod.number(),
+  "total": zod.number()
+})
+
+export const PurchaseReturnResponse = zod.object({
+  "id": zod.number(),
+  "returnNumber": zod.string(),
+  "date": zod.string(),
+  "originalBatchId": zod.number(),
+  "batchNumber": zod.string().nullish(),
+  "vendorId": zod.number().nullish(),
+  "vendorName": zod.string().nullish(),
+  "subtotal": zod.number(),
+  "total": zod.number(),
+  "paymentAccountId": zod.number(),
+  "paymentAccountName": zod.string().nullish(),
+  "journalEntryId": zod.number().nullish(),
+  "reason": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "lines": zod.array(PurchaseReturnLineResponse)
+})
+
+export const ListPurchaseReturnsResponse = zod.array(PurchaseReturnResponse)
+
+

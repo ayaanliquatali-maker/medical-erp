@@ -8,6 +8,7 @@ import {
   Landmark,
   Settings,
   ChevronDown,
+  Undo2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -114,6 +115,28 @@ function NavItem({ group, location, isAdmin }: { group: NavGroup; location: stri
                 className="flex items-center px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
               >
                 Audit Trail
+              </Link>
+            </>
+          )}
+          {group.label === "Sales" && isAdmin && (
+            <>
+              {group.children.length > 0 && <div className="h-px bg-border mx-2 my-1" />}
+              <Link
+                href="/sales-return"
+                className="flex items-center px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
+              >
+                Sales Returns
+              </Link>
+            </>
+          )}
+          {group.label === "Inventory" && isAdmin && (
+            <>
+              {group.children.length > 0 && <div className="h-px bg-border mx-2 my-1" />}
+              <Link
+                href="/purchase-return"
+                className="flex items-center px-3 py-1.5 text-sm text-popover-foreground hover:bg-accent hover:text-accent-foreground cursor-pointer"
+              >
+                Purchase Returns
               </Link>
             </>
           )}

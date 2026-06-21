@@ -16,6 +16,8 @@ import InventoryPage from "@/pages/Products";
 import PurchasePage from "@/pages/Inventory";
 import SalesPage from "@/pages/POS";
 import SalesHistoryPage from "@/pages/Sales";
+import SalesReturnPage from "@/pages/SalesReturn";
+import PurchaseReturnPage from "@/pages/PurchaseReturn";
 import Accounts from "@/pages/Accounts";
 import Journals from "@/pages/Journals";
 import Vendors from "@/pages/Vendors";
@@ -42,6 +44,8 @@ function Router() {
         <Route path="/purchase" component={PurchasePage} />
         <Route path="/sales" component={SalesPage} />
         <Route path="/sales-history" component={SalesHistoryPage} />
+        <Route path="/sales-return" component={SalesReturnPage} />
+        <Route path="/purchase-return" component={PurchaseReturnPage} />
         <Route path="/accounts" component={Accounts} />
         <Route path="/journals" component={Journals} />
         <Route path="/ledger" component={GeneralLedger} />

@@ -1,11 +1,13 @@
 import { useState, useRef } from "react";
+import { Link } from "wouter";
 import { useListSales, useGetSaleReceipt, getListSalesQueryKey, getGetSaleReceiptQueryKey } from "@workspace/api-client-react";
+import { useAdmin } from "@/context/admin";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Search, Receipt, Printer, Upload, ImageIcon } from "lucide-react";
+import { Search, Receipt, Printer, Upload, ImageIcon, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 import { useCurrency } from "@/hooks/use-currency";
 import { parseDate } from "@/lib/utils";
@@ -305,6 +307,7 @@ function ReceiptModal({ saleId, onClose }: { saleId: number; onClose: () => void
 
 export default function Sales() {
   const { fmt } = useCurrency();
+  const { isAdmin } = useAdmin();
   const [search, setSearch] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const { data: sales, isLoading } = useListSales({ search }, { query: { queryKey: getListSalesQueryKey({ search }) } });
@@ -334,14 +337,15 @@ export default function Sales() {
               <TableHead className="text-right">Subtotal</TableHead>
               <TableHead className="text-right">Discount</TableHead>
               <TableHead className="text-right">Total</TableHead>
+              {isAdmin && <TableHead className="text-right w-20"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? [...Array(5)].map((_, i) => (
-              <TableRow key={i}>{[...Array(7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+              <TableRow key={i}>{[...Array(isAdmin ? 8 : 7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
             )) : (Array.isArray(sales) ? sales : []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center h-32 text-muted-foreground">No sales yet. Make a sale from Point of Sale.</TableCell>
+                <TableCell colSpan={isAdmin ? 8 : 7} className="text-center h-32 text-muted-foreground">No sales yet. Make a sale from Point of Sale.</TableCell>
               </TableRow>
             ) : (Array.isArray(sales) ? sales : []).map(sale => (
               <TableRow
@@ -361,6 +365,15 @@ export default function Sales() {
                 <TableCell className="text-right tabular-nums">{fmt(sale.subtotal)}</TableCell>
                 <TableCell className="text-right tabular-nums">{fmt(sale.discount)}</TableCell>
                 <TableCell className="text-right font-bold text-primary tabular-nums">{fmt(sale.total)}</TableCell>
+                {isAdmin && (
+                  <TableCell className="text-right">
+                    <Link href={`/sales-return`} onClick={e => e.stopPropagation()}>
+                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                        <Undo2 className="w-3 h-3" /> Return
+                      </Button>
+                    </Link>
+                  </TableCell>
+                )}
               </TableRow>
             ))}
           </TableBody>

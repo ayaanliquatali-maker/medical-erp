@@ -1,15 +1,17 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import {
   useListProducts, useCreateSale, useListAccounts,
   getListProductsQueryKey, getListAccountsQueryKey, getListSalesQueryKey,
 } from "@workspace/api-client-react";
+import { useAdmin } from "@/context/admin";
 import { useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Search, Plus, Trash2, CheckCircle, Calculator } from "lucide-react";
+import { Search, Plus, Trash2, CheckCircle, Calculator, Undo2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -30,6 +32,7 @@ type LineItem = {
 
 export default function Sales() {
   const { fmt, symbol } = useCurrency();
+  const { isAdmin } = useAdmin();
   const todayStr = () => new Date().toISOString().slice(0, 10);
   const [search, setSearch] = useState("");
   const [lines, setLines] = useState<LineItem[]>([]);
@@ -170,7 +173,16 @@ export default function Sales() {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New Sales Invoice</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">New Sales Invoice</h1>
+          {isAdmin && (
+            <Link href="/sales-return">
+              <Button variant="outline" size="sm" className="gap-1.5 h-7 text-xs">
+                <Undo2 className="w-3.5 h-3.5" /> Process Return
+              </Button>
+            </Link>
+          )}
+        </div>
         <p className="text-sm text-muted-foreground mt-1">Create an invoice with inventory and accounting entries.</p>
       </div>
 

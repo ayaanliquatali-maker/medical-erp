@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import {
   useListInventory, useReceiveInventory, useListProducts, useListVendors, useListAccounts, useDeleteInventoryBatch,
   getListInventoryQueryKey, getListProductsQueryKey, getListVendorsQueryKey, getListAccountsQueryKey,
@@ -12,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Boxes, Layers, Pill, Trash2 } from "lucide-react";
+import { Plus, Boxes, Layers, Pill, Trash2, Undo2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { useCurrency } from "@/hooks/use-currency";
@@ -181,9 +182,16 @@ export default function Inventory() {
                   <TableCell>{batch.vendorName || "-"}</TableCell>
                   <TableCell className="text-right">
                     {isAdmin ? (
-                      <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700" onClick={() => { setBatchToDelete(batch.id); setDeleteDialogOpen(true); }}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href="/purchase-return" onClick={e => e.stopPropagation()}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                            <Undo2 className="w-4 h-4" />
+                          </Button>
+                        </Link>
+                        <Button variant="ghost" size="icon" className="text-red-600 hover:text-red-700" onClick={() => { setBatchToDelete(batch.id); setDeleteDialogOpen(true); }}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     ) : null}
                   </TableCell>
                 </TableRow>
