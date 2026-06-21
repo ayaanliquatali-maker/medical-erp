@@ -2,7 +2,7 @@ import { Router } from "express";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { db } from "@workspace/db";
 import { serializeForZod } from "../lib/serialize";
-import { journalEntriesTable, journalLinesTable, accountsTable, salesTable, expensesTable, inventoryBatchesTable } from "@workspace/db";
+import { journalEntriesTable, journalLinesTable, accountsTable, salesTable, expensesTable, inventoryBatchesTable, salesReturnsTable, purchaseReturnsTable } from "@workspace/db";
 import { requireAdmin } from "../lib/admin";
 import { logAudit } from "../lib/audit";
 import {
@@ -123,15 +123,26 @@ router.delete("/journals/:id", requireAdmin, async (req, res): Promise<void> => 
 
   // Cascade: delete associated business record based on journal type
   if (entry.type === "sale") {
+    // Delete any sales returns that reference this sale
+    const sale = await db.query.salesTable.findFirst({ where: eq(salesTable.journalEntryId, id) });
+    if (sale) {
+      await db.delete(salesReturnsTable).where(eq(salesReturnsTable.originalSaleId, sale.id));
+    }
     await db.delete(salesTable).where(eq(salesTable.journalEntryId, id));
   } else if (entry.type === "expense") {
     await db.delete(expensesTable).where(eq(expensesTable.journalEntryId, id));
   } else if (entry.type === "purchase") {
     const batch = await db.query.inventoryBatchesTable.findFirst({ where: eq(inventoryBatchesTable.journalEntryId, id) });
     if (batch) {
+      // Delete any purchase returns that reference this batch
+      await db.delete(purchaseReturnsTable).where(eq(purchaseReturnsTable.originalBatchId, batch.id));
       await db.update(inventoryBatchesTable).set({ journalEntryId: null }).where(eq(inventoryBatchesTable.id, batch.id));
       await db.delete(inventoryBatchesTable).where(eq(inventoryBatchesTable.id, batch.id));
     }
+  } else if (entry.type === "sale_return") {
+    await db.delete(salesReturnsTable).where(eq(salesReturnsTable.journalEntryId, id));
+  } else if (entry.type === "purchase_return") {
+    await db.delete(purchaseReturnsTable).where(eq(purchaseReturnsTable.journalEntryId, id));
   }
 
   await db.delete(journalEntriesTable).where(eq(journalEntriesTable.id, id));
