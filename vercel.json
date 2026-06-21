@@ -3,7 +3,7 @@
   "framework": "vite",
   "buildCommand": "pnpm --filter @workspace/erp run build",
   "outputDirectory": "artifacts/erp/dist/public",
-  "installCommand": "pnpm install --frozen-lockfile",
+  "installCommand": "pnpm install --no-frozen-lockfile",
   "devCommand": "pnpm --filter @workspace/erp run dev",
   "rewrites": [
     { "source": "/(.*)", "destination": "/" }
