@@ -1,12 +1,16 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { Link } from "wouter";
-import { useListSales, useGetSaleReceipt, getListSalesQueryKey, getGetSaleReceiptQueryKey } from "@workspace/api-client-react";
+import {
+  useListSales, useGetSaleReceipt, useListSalesReturns,
+  getListSalesQueryKey, getGetSaleReceiptQueryKey, getListSalesReturnsQueryKey,
+} from "@workspace/api-client-react";
 import { useAdmin } from "@/context/admin";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { Search, Receipt, Printer, Upload, ImageIcon, Undo2 } from "lucide-react";
 import { format } from "date-fns";
 import { useCurrency } from "@/hooks/use-currency";
@@ -311,6 +315,18 @@ export default function Sales() {
   const [search, setSearch] = useState("");
   const [selectedSaleId, setSelectedSaleId] = useState<number | null>(null);
   const { data: sales, isLoading } = useListSales({ search }, { query: { queryKey: getListSalesQueryKey({ search }) } });
+  const { data: salesReturns } = useListSalesReturns({ query: { queryKey: getListSalesReturnsQueryKey() } });
+
+  const returnsList = useMemo(() => (Array.isArray(salesReturns) ? salesReturns : []) as any[], [salesReturns]);
+
+  const getReturnInfo = (saleId: number) => {
+    const saleReturns = returnsList.filter((r: any) => r.originalSaleId === saleId);
+    if (saleReturns.length === 0) return null;
+    const totalReturned = saleReturns.reduce((sum: number, r: any) => sum + (r.total ?? 0), 0);
+    return { count: saleReturns.length, totalReturned };
+  };
+
+  const saleList = useMemo(() => (Array.isArray(sales) ? sales : []) as any[], [sales]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -332,50 +348,69 @@ export default function Sales() {
             <TableRow>
               <TableHead>Date</TableHead>
               <TableHead>Invoice No</TableHead>
+              <TableHead>Products</TableHead>
               <TableHead>Customer</TableHead>
-              <TableHead>Payment Account</TableHead>
-              <TableHead className="text-right">Subtotal</TableHead>
-              <TableHead className="text-right">Discount</TableHead>
               <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Status</TableHead>
               {isAdmin && <TableHead className="text-right w-20"></TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? [...Array(5)].map((_, i) => (
-              <TableRow key={i}>{[...Array(isAdmin ? 8 : 7)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
-            )) : (Array.isArray(sales) ? sales : []).length === 0 ? (
+              <TableRow key={i}>{[...Array(isAdmin ? 7 : 6)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>
+            )) : saleList.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 8 : 7} className="text-center h-32 text-muted-foreground">No sales yet. Make a sale from Point of Sale.</TableCell>
+                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center h-32 text-muted-foreground">No sales yet. Make a sale from Point of Sale.</TableCell>
               </TableRow>
-            ) : (Array.isArray(sales) ? sales : []).map(sale => (
-              <TableRow
-                key={sale.id}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => setSelectedSaleId(sale.id)}
-              >
-                <TableCell>{format(parseDate(sale.date), "MMM d, yyyy")}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2 font-mono text-sm">
-                    <Receipt className="w-4 h-4 text-muted-foreground" />
-                    {sale.saleNumber}
-                  </div>
-                </TableCell>
-                <TableCell>{sale.customerName || "Walk-in"}</TableCell>
-                <TableCell>{sale.paymentAccountName}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(sale.subtotal)}</TableCell>
-                <TableCell className="text-right tabular-nums">{fmt(sale.discount)}</TableCell>
-                <TableCell className="text-right font-bold text-primary tabular-nums">{fmt(sale.total)}</TableCell>
-                {isAdmin && (
-                  <TableCell className="text-right">
-                    <Link href={`/sales-return`} onClick={e => e.stopPropagation()}>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
-                        <Undo2 className="w-3 h-3" /> Return
-                      </Button>
-                    </Link>
+            ) : saleList.map((sale: any) => {
+              const returnInfo = getReturnInfo(sale.id);
+              const lines = sale.lines ?? [];
+              const productNames = lines.slice(0, 3).map((l: any) => l.productName).join(", ");
+              const extraCount = lines.length - 3;
+
+              return (
+                <TableRow
+                  key={sale.id}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => setSelectedSaleId(sale.id)}
+                >
+                  <TableCell className="whitespace-nowrap">{format(parseDate(sale.date), "MMM d, yyyy")}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2 font-mono text-sm">
+                      <Receipt className="w-4 h-4 text-muted-foreground shrink-0" />
+                      {sale.saleNumber}
+                    </div>
                   </TableCell>
-                )}
-              </TableRow>
-            ))}
+                  <TableCell>
+                    <div className="text-sm text-muted-foreground max-w-[250px] truncate">
+                      {productNames}{extraCount > 0 ? ` +${extraCount} more` : ""}
+                    </div>
+                  </TableCell>
+                  <TableCell>{sale.customerName || "Walk-in"}</TableCell>
+                  <TableCell className="text-right font-bold text-primary tabular-nums whitespace-nowrap">{fmt(sale.total)}</TableCell>
+                  <TableCell className="text-right">
+                    {returnInfo ? (
+                      returnInfo.totalReturned >= sale.total ? (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Returned</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Partial ({fmt(returnInfo.totalReturned)})</Badge>
+                      )
+                    ) : (
+                      <span className="text-xs text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
+                  {isAdmin && (
+                    <TableCell className="text-right">
+                      <Link href="/sales-return" onClick={e => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs gap-1">
+                          <Undo2 className="w-3 h-3" /> Return
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  )}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
