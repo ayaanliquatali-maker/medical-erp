@@ -17,8 +17,14 @@ type AuditLog = {
   createdAt: string;
 };
 
+function apiUrl(path: string): string {
+  const base = import.meta.env.VITE_API_URL;
+  if (!base) return `/api${path}`;
+  return `${base.replace(/\/+$/, "")}/api${path}`;
+}
+
 const fetchAuditLogs = async (): Promise<AuditLog[]> => {
-  const res = await fetch("/api/admin/audit-logs");
+  const res = await fetch(apiUrl("/admin/audit-logs"));
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || "Failed to load audit logs");
@@ -37,7 +43,7 @@ const formatDetails = (details: string) => {
 };
 
 const clearAuditLogs = async (): Promise<void> => {
-  const res = await fetch("/api/admin/audit-logs/clear", { method: "POST" });
+  const res = await fetch(apiUrl("/admin/audit-logs/clear"), { method: "POST" });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || "Failed to clear audit logs");

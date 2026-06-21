@@ -50,6 +50,7 @@ export default function Products() {
   const deleteProduct = useDeleteProduct();
   const productsList = Array.isArray(products) ? products : [];
   const productResponseInvalid = products != null && !Array.isArray(products);
+  const productResponseIsHtml = productResponseInvalid && typeof products === "string" && (products as string).trim().startsWith("<");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { isAdmin } = useAdmin();
@@ -249,7 +250,11 @@ export default function Products() {
               </TableRow>
             )) : productResponseInvalid ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center h-32 text-destructive">Unable to load products. Please refresh or check the backend.</TableCell>
+                <TableCell colSpan={6} className="text-center h-32 text-destructive">
+                  {productResponseIsHtml
+                    ? "API server not reachable. Set VITE_API_URL in your Vercel env vars to the Railway API URL."
+                    : "Unable to load products. Please refresh or check the backend."}
+                </TableCell>
               </TableRow>
             ) : filteredProducts.length === 0 ? (
               <TableRow>

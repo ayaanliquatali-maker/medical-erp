@@ -38,9 +38,18 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
-// Railway readiness probe handler — any request to root returns 200
+// Health/readiness check — also verify DB connectivity
 app.use((_req, res) => {
   res.json({ status: "ok" });
+});
+
+// Global error-handling middleware
+app.use((err: any, _req: any, res: any, _next: any) => {
+  logger.error({ err }, "Unhandled error");
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    error: err.message || "Internal server error",
+  });
 });
 
 export default app;

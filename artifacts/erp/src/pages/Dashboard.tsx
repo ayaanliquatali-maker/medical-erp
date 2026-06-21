@@ -315,7 +315,8 @@ function AddCapitalDialog({ onClose }: { onClose: () => void }) {
     }
     setSaving(true);
     try {
-      const res = await fetch("/api/capital/add", {
+      const apiBase = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL.replace(/\/+$/, "")}` : "";
+      const res = await fetch(`${apiBase}/api/capital/add`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
