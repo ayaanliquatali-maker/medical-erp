@@ -586,7 +586,7 @@ export const ListJournalsResponseItem = zod.object({
   "date": zod.coerce.date(),
   "description": zod.string(),
   "reference": zod.string().nullish(),
-  "type": zod.enum(['manual', 'sale', 'purchase', 'expense', 'adjustment']),
+  "type": zod.enum(['manual', 'sale', 'purchase', 'expense', 'adjustment', 'sale_return', 'purchase_return']),
   "lines": zod.array(zod.object({
   "id": zod.number(),
   "accountId": zod.number(),
@@ -630,7 +630,7 @@ export const GetJournalResponse = zod.object({
   "date": zod.coerce.date(),
   "description": zod.string(),
   "reference": zod.string().nullish(),
-  "type": zod.enum(['manual', 'sale', 'purchase', 'expense', 'adjustment']),
+  "type": zod.enum(['manual', 'sale', 'purchase', 'expense', 'adjustment', 'sale_return', 'purchase_return']),
   "lines": zod.array(zod.object({
   "id": zod.number(),
   "accountId": zod.number(),
@@ -657,7 +657,7 @@ export const DeleteJournalResponse = zod.object({
   "date": zod.coerce.date(),
   "description": zod.string(),
   "reference": zod.string().nullish(),
-  "type": zod.enum(['manual', 'sale', 'purchase', 'expense', 'adjustment']),
+  "type": zod.enum(['manual', 'sale', 'purchase', 'expense', 'adjustment', 'sale_return', 'purchase_return']),
   "lines": zod.array(zod.object({
   "id": zod.number(),
   "accountId": zod.number(),
