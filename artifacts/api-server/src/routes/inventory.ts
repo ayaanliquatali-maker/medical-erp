@@ -49,55 +49,60 @@ async function enrichBatch(batch: typeof inventoryBatchesTable.$inferSelect) {
 }
 
 router.get("/inventory/alerts", async (_req, res): Promise<void> => {
-  const products = await db.select().from(productsTable).where(eq(productsTable.isActive, true));
-  const allBatches = await db.select().from(inventoryBatchesTable);
-  const today = new Date().toISOString().slice(0, 10);
-  const in30Days = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
+  try {
+    const products = await db.select().from(productsTable).where(eq(productsTable.isActive, true));
+    const allBatches = await db.select().from(inventoryBatchesTable);
+    const today = new Date().toISOString().slice(0, 10);
+    const in30Days = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10);
 
-  const outOfStock = [];
-  const lowStock = [];
+    const outOfStock = [];
+    const lowStock = [];
 
-  for (const product of products) {
-    const productBatches = allBatches.filter(b => b.productId === product.id);
-    const totalTablets = productBatches.reduce((sum, b) => sum + b.remainingTablets, 0);
-    const nearestExpiry = productBatches
-      .filter(b => b.remainingTablets > 0)
-      .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))[0]?.expiryDate ?? null;
+    for (const product of products) {
+      const productBatches = allBatches.filter(b => b.productId === product.id);
+      const totalTablets = productBatches.reduce((sum, b) => sum + b.remainingTablets, 0);
+      const nearestExpiry = productBatches
+        .filter(b => b.remainingTablets > 0)
+        .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))[0]?.expiryDate ?? null;
 
-    const activeBatch = productBatches
-      .filter(b => b.remainingTablets > 0 && b.expiryDate >= today)
-      .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))[0];
+      const activeBatch = productBatches
+        .filter(b => b.remainingTablets > 0 && b.expiryDate >= today)
+        .sort((a, b) => a.expiryDate.localeCompare(b.expiryDate))[0];
 
-    const tabsPerPack = activeBatch?.tabsPerPack ?? 1;
-    const packsPerBox = activeBatch?.packsPerBox ?? 1;
-    const totalPacks = totalTablets / tabsPerPack;
-    const totalBoxes = totalPacks / packsPerBox;
+      const tabsPerPack = activeBatch?.tabsPerPack || 1;
+      const packsPerBox = activeBatch?.packsPerBox || 1;
+      const totalPacks = totalTablets / tabsPerPack;
+      const totalBoxes = totalPacks / packsPerBox;
 
-    const enrichedProduct = {
-      ...product,
-      totalTablets,
-      totalPacks,
-      totalBoxes,
-      nearestExpiry,
-    };
+      const enrichedProduct = {
+        ...product,
+        totalTablets,
+        totalPacks,
+        totalBoxes,
+        nearestExpiry,
+      };
 
-    if (totalTablets === 0) outOfStock.push(enrichedProduct);
-    else if (totalTablets <= product.reorderLevel) lowStock.push(enrichedProduct);
+      if (totalTablets === 0) outOfStock.push(enrichedProduct);
+      else if (totalTablets <= product.reorderLevel) lowStock.push(enrichedProduct);
+    }
+
+    const nearExpiry = (await Promise.all(
+      allBatches
+        .filter(b => b.remainingTablets > 0 && b.expiryDate <= in30Days && b.expiryDate >= today)
+        .map(enrichBatch)
+    ));
+
+    const expired = (await Promise.all(
+      allBatches
+        .filter(b => b.remainingTablets > 0 && b.expiryDate < today)
+        .map(enrichBatch)
+    ));
+
+    res.json(GetInventoryAlertsResponse.parse(serializeForZod({ outOfStock, lowStock, nearExpiry, expired })));
+  } catch (err) {
+    console.error("Inventory alerts error:", err);
+    res.status(500).json({ error: "Failed to load inventory alerts" });
   }
-
-  const nearExpiry = (await Promise.all(
-    allBatches
-      .filter(b => b.remainingTablets > 0 && b.expiryDate <= in30Days && b.expiryDate >= today)
-      .map(enrichBatch)
-  ));
-
-  const expired = (await Promise.all(
-    allBatches
-      .filter(b => b.remainingTablets > 0 && b.expiryDate < today)
-      .map(enrichBatch)
-  ));
-
-  res.json(GetInventoryAlertsResponse.parse(serializeForZod({ outOfStock, lowStock, nearExpiry, expired })));
 });
 
 router.get("/inventory", async (req, res): Promise<void> => {

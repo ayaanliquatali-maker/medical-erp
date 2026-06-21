@@ -24,7 +24,7 @@ function apiUrl(path: string): string {
 }
 
 const fetchAuditLogs = async (): Promise<AuditLog[]> => {
-  const res = await fetch(apiUrl("/admin/audit-logs"));
+  const res = await fetch(apiUrl("/admin/audit-logs"), { credentials: "include" });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || "Failed to load audit logs");
@@ -43,7 +43,7 @@ const formatDetails = (details: string) => {
 };
 
 const clearAuditLogs = async (): Promise<void> => {
-  const res = await fetch(apiUrl("/admin/audit-logs/clear"), { method: "POST" });
+  const res = await fetch(apiUrl("/admin/audit-logs/clear"), { method: "POST", credentials: "include" });
   if (!res.ok) {
     const body = await res.text();
     throw new Error(body || "Failed to clear audit logs");

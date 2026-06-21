@@ -27,8 +27,8 @@ export function signAdminCookie(res: Response): void {
   res.cookie(ADMIN_COOKIE_NAME, "1", {
     httpOnly: true,
     signed: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",
+    secure: true,
     maxAge: ADMIN_COOKIE_MAX_AGE,
     path: "/",
   });
@@ -38,8 +38,8 @@ export function clearAdminCookie(res: Response): void {
   res.clearCookie(ADMIN_COOKIE_NAME, {
     httpOnly: true,
     signed: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    sameSite: "none",
+    secure: true,
     path: "/",
   });
 }
